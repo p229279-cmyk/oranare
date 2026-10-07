@@ -19,10 +19,15 @@ Read in this order:
    problem, what's broken today, why now.
 2. [`docs/PRD.md`](docs/PRD.md) — product requirements: goals, non-goals,
    functional requirements, success metrics.
-3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system design: every
-   subsystem interface, the franchise provisioning flow, diagrams, the
-   day-by-day build plan.
-4. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
+3. [`docs/ENGINE.md`](docs/ENGINE.md) — **the engine itself**: the
+   generic, reusable harness (agent loop, model access, tools, identity,
+   memory, profiles, config, pipelines, channels, access control,
+   extensibility). Completely business-agnostic — this is "our harness,"
+   independent of what any specific agent's job is.
+4. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
+   architecture: how THIS specific product (Agent A, Agent B, the
+   franchise provisioning flow) is assembled on top of the engine.
+5. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
    level detail: exact data shapes, schemas, error/testing conventions.
 
 **Important:** large parts of the PRD and spec are marked **[CONFIRM]** —

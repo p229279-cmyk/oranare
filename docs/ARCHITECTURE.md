@@ -1,15 +1,25 @@
-# Ornare Harness — Architecture
+# Ornare Harness — Product Architecture
+
+**This document is the PRODUCT layer, built entirely on top of
+[`docs/ENGINE.md`](ENGINE.md) — the generic, reusable engine (the agent
+loop, model access, tools, identity, memory, profiles, config,
+pipelines, channels, access control, extensibility). Read `ENGINE.md`
+first.** Everything below assumes the engine's subsystems already exist
+and describes how THIS specific product (two agents, a franchise
+business) is assembled on top of them. If you find yourself describing a
+generic mechanism here rather than a specific use of one, it belongs in
+`ENGINE.md` instead — move it.
 
 **Status:** Day 1 of a 10-day build. This document is the single source of
-truth for every interface in the system. Every later day's code must match
-what's specified here; if reality and this doc diverge, fix the doc in the
-same change that fixes the code.
+truth for how this specific product consumes the engine. Every later
+day's code must match what's specified here; if reality and this doc
+diverge, fix the doc in the same change that fixes the code.
 
 **What this is:** a production-scale successor to the hand-built Ornare
-agent system (5 manually-wired Hermes profiles), built from scratch as our
-own harness so it can scale to dozens of franchises without hand-wiring
-each one, and so new agents/channels/integrations can be added by writing
-one adapter instead of restructuring the system.
+agent system (5 manually-wired Hermes profiles), built on our own generic
+engine (`ENGINE.md`) so it can scale to dozens of franchises without
+hand-wiring each one, and so new agents/channels/integrations can be
+added by writing one adapter instead of restructuring the system.
 
 ---
 
@@ -158,89 +168,54 @@ flowchart TB
 
 ---
 
-## 5. Subsystem interfaces
+## 5. How this product consumes the engine
 
-Each interface below follows the same contract-first discipline from the
-curriculum (Day 3's "ask what the loop needs before writing the first
-implementation"). Only interfaces are specified here; implementations
-land day by day per the plan in §8.
+**The generic subsystem interfaces (`ModelProvider`, `Tool`/
+`ToolRegistry`, `SystemPrompt`, `SessionStore`, `ProfileManager`,
+`Channel`, `Pipeline`, `WhitelistGate`, `ApprovalGate`) are fully
+specified in [`docs/ENGINE.md`](ENGINE.md).** This section covers only
+what's SPECIFIC to how this product uses them — not the mechanisms
+themselves.
 
-### 5.1 `ModelProvider` (from Day 3, carried over unchanged)
-```python
-class ModelProvider(Protocol):
-    def chat(self, messages, system, tools) -> ModelResponse: ...
-    def stream(self, messages, system, tools) -> Iterator[StreamEvent]: ...
-```
-Concrete adapter today: `AnthropicProvider`. No second provider needed yet
-— do not build one speculatively (Day 1 YAGNI principle).
-
-### 5.2 `Tool` + `ToolRegistry` (from Day 4, carried over unchanged)
-Per-agent registries: Agent A's registry and Agent B's registry are
-different instances with different registered tools. A franchise profile
-never sees Agent B's tools and vice versa — this is enforced by which
-registry gets wired into that profile's loop, not by a runtime check.
-
-### 5.3 `SystemPrompt` (from Day 5, carried over unchanged)
-Three-tier (stable/context/volatile). New wrinkle for this product: the
-STABLE tier differs per agent type (Agent A's identity/rules vs. Agent
-B's) but is byte-identical across every franchise running Agent A — the
-franchise-specific data (branch name, numbers) belongs in the volatile
-tier or in tool results, never baked into the stable prompt, or every
-franchise would need its own cache-cold prompt for no real reason.
-
-### 5.4 `SessionStore` (from Day 6, carried over unchanged)
-One instance per profile (per Day 7). A franchise's SessionStore lives at
-`profiles/<franchise>/sessions.db`. Agent B, running at the orchestrator
-level, has its own `profiles/orchestrator/sessions.db`.
-
-### 5.5 `ProfileManager` (from Day 7, EXTENDED)
-Day 7's version only created/validated/listed profiles. This product
-needs the `FranchiseRegistry` on top (see §4) — a thin layer that adds
-franchise-specific metadata (WhatsApp number, status, branch display
-name) without touching `ProfileManager`'s own generic contract.
-
-### 5.6 `Channel` (NEW — not yet built in the curriculum, needed by Day 5)
-```python
-class Channel(Protocol):
-    def receive(self) -> NormalizedMessage: ...
-    def send(self, chat_id: str, content: str) -> None: ...
-    def send_bulk(self, chat_ids: list[str], content: str) -> BulkResult: ...
-    def format(self, markdown: str) -> str: ...
-```
-Concrete adapter: `WhatsAppChannel`, reusing the already-debugged Baileys
-bridge + markdown-to-WhatsApp formatter proven on the real Ornare system.
-`send_bulk` is new — needed for the "WhatsApp → bulk" requirement — built
-as a thin loop over `send` with rate-limiting, not a separate code path.
-
-### 5.7 `Pipeline` (NEW — formalizes the proven Ornare COLLECT/ANALYZE/REASON/DELIVER shape)
-```python
-class PipelineStage(Protocol):
-    def run(self, context: PipelineContext) -> PipelineContext: ...
-```
-A `Pipeline` is an ordered list of stages. COLLECT/ANALYZE/DELIVER stages
-are plain Python. Exactly one REASON stage per pipeline makes the model
-call, with a locked prompt file and a strict JSON output schema — this
-mirrors Pulse/Scout/Sentry's `reason_prompt.md` pattern exactly.
-
-### 5.8 `WhitelistGate` (NEW — access control for Agent A's bulk/negotiation actions)
-A simple allow-list check at the tool-execution boundary (Day 2's
-blast-radius principle: validate at the point of execution, not just in
-the prompt) — any tool that sends WhatsApp messages or performs a
-negotiation action checks the calling number/chat against the current
-franchise's whitelist before executing, not after.
-
-### 5.9 `ApprovalGate` (NEW — human-in-the-loop for Agent A, same pattern as Rapid)
-Reuses the proven Rapid pattern: a drafted action is posted with a
-numbered-reply approval prompt (1=Accept/2=Reject/3=Edit) before it's
-actually executed. This is a tool-level wrapper, not a loop-level
-special case — any tool can be marked `requires_approval=True` at
-registration time.
+- **`ModelProvider`:** `AnthropicProvider` only, per the engine's own
+  "no speculative second provider" rule. No product-specific wrinkle.
+- **`ToolRegistry`:** Agent A and Agent B get separate registry
+  instances with different registered tools. A franchise profile's loop
+  is constructed with Agent A's registry only — it never has access to
+  Agent B's tools, and vice versa. This isolation is enforced by which
+  registry object the loop is built with, not a runtime permission
+  check (consistent with the engine's own identity-isolation principle).
+- **`SystemPrompt`:** the STABLE tier differs per agent type (Agent A's
+  identity/rules vs. Agent B's) but is byte-identical across every
+  franchise running Agent A. Franchise-specific data (branch name,
+  numbers) belongs in the volatile tier or in tool results — never
+  baked into the stable prompt, or every franchise would need its own
+  cache-cold prompt for no real reason.
+- **`SessionStore`:** one instance per profile, per the engine's
+  profile-isolation design. A franchise's store lives at
+  `profiles/franchises/<id>/sessions.db`; Agent B's lives at
+  `profiles/orchestrator/sessions.db`.
+- **`ProfileManager`:** extended at the product layer with the
+  `FranchiseRegistry` (§4 above) — a thin layer adding franchise-specific
+  metadata (WhatsApp number, status, display name) on top of the
+  engine's generic profile contract, without modifying that contract.
+- **`Channel`:** concrete adapter is `WhatsAppChannel`, reusing the
+  already-debugged Baileys bridge + markdown-to-WhatsApp formatter
+  proven on the original Ornare system. `send_bulk` is used for the
+  "WhatsApp → bulk" requirement.
+- **`Pipeline`:** both Agent A and Agent B follow the engine's proven
+  COLLECT→ANALYZE→REASON→DELIVER shape — see §6 and §7 below for each
+  agent's specific stages.
+- **`WhitelistGate` / `ApprovalGate`:** used by Agent A for bulk sends
+  and negotiation actions. Agent B does not currently need either (no
+  consequential external action, no bulk send) — not wired in unless a
+  real need appears.
 
 ---
 
 ## 6. Agent A — Franchise Sales & Negotiation Intelligence (per-franchise instance)
 
-**Pipeline shape (Day 4/Ornare pattern):**
+**Pipeline shape (engine's proven shape, see `ENGINE.md` §8):**
 
 <!-- DIAGRAM 3: agent-a-pipeline.mmd -->
 
