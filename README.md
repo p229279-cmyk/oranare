@@ -24,10 +24,16 @@ Read in this order:
    memory, profiles, config, pipelines, channels, access control,
    extensibility). Completely business-agnostic — this is "our harness,"
    independent of what any specific agent's job is.
-4. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
+4. [`docs/ENGINEERING_STANDARDS.md`](docs/ENGINEERING_STANDARDS.md) —
+   the engine's non-negotiable cross-cutting rulebook: security, cost
+   management, reliability, observability, permissions, and context
+   management — reasoned from Hermes's own real production mechanisms,
+   explicit about where we match Hermes and where our narrower
+   pipeline-shaped workload lets us do structurally better.
+5. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
    architecture: how THIS specific product (Agent A, Agent B, the
    franchise provisioning flow) is assembled on top of the engine.
-5. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
+6. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
    level detail: exact data shapes, schemas, error/testing conventions.
 
 **Important:** large parts of the PRD and spec are marked **[CONFIRM]** —

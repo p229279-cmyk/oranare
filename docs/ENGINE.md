@@ -11,12 +11,19 @@ architecture, which consumes this engine) instead.
 ```mermaid
 flowchart LR
     ENGINE["ENGINE.md<br/>(this file)<br/>generic, reusable"]
+    STANDARDS["ENGINEERING_STANDARDS.md<br/>security, cost, reliability,<br/>observability, context"]
     PRODUCT["ARCHITECTURE.md<br/>product architecture<br/>(Agent A, Agent B, franchises)"]
     PRD["PRD.md<br/>what/why for<br/>THIS product"]
 
     ENGINE -->|"is built once,<br/>consumed by"| PRODUCT
+    STANDARDS -->|"governs every<br/>subsystem in"| ENGINE
     PRD -->|"defines requirements<br/>for"| PRODUCT
 ```
+
+`docs/ENGINEERING_STANDARDS.md` is this engine's non-negotiable
+cross-cutting rulebook — security, cost management, reliability,
+observability, permissions, and context management. Read it alongside
+this file; every subsystem below must satisfy it.
 
 The engine is the thing we are actually building as "our harness." Any
 future agent Ornare asks for — a third, a tenth — is a new consumer of
