@@ -19,17 +19,24 @@ Read in this order:
    problem, what's broken today, why now.
 2. [`docs/PRD.md`](docs/PRD.md) — product requirements: goals, non-goals,
    functional requirements, success metrics.
-3. [`docs/ENGINE.md`](docs/ENGINE.md) — **the engine itself**: the
-   generic, reusable harness (agent loop, model access, tools, identity,
-   memory, profiles, config, pipelines, channels, access control,
+3. [`docs/engine/00-OVERVIEW.md`](docs/engine/00-OVERVIEW.md) — **the
+   engine itself, start here**: the complete A-to-Z harness at four
+   levels of zoom (System Context → Container → Component → Sequence),
+   then one detailed file per subsystem in [`docs/engine/`](docs/engine/)
+   (agent loop, model provider, tools, system prompt, session store,
+   profiles, config/secrets, pipelines, channels, access control,
    extensibility). Completely business-agnostic — this is "our harness,"
-   independent of what any specific agent's job is.
-4. [`docs/ENGINEERING_STANDARDS.md`](docs/ENGINEERING_STANDARDS.md) —
-   the engine's non-negotiable cross-cutting rulebook: security, cost
-   management, reliability, observability, permissions, and context
-   management — reasoned from Hermes's own real production mechanisms,
-   explicit about where we match Hermes and where our narrower
-   pipeline-shaped workload lets us do structurally better.
+   independent of what any specific agent's job is. `docs/ENGINE.md` is
+   now a short index into this directory.
+4. [`docs/standards/`](docs/standards/) — the engine's non-negotiable
+   cross-cutting rulebook, one file per concern: `SECURITY.md`,
+   `COST.md`, `RELIABILITY.md`, `OBSERVABILITY.md`,
+   `CONTEXT_MANAGEMENT.md`, `PERMISSIONS.md` — each reasoned from
+   Hermes's own real production mechanisms, explicit about where we
+   match Hermes and where our narrower pipeline-shaped workload lets us
+   do structurally better (most notably `CONTEXT_MANAGEMENT.md`, which
+   deliberately does NOT copy Hermes by default). `docs/ENGINEERING_STANDARDS.md`
+   is now a short index into this directory.
 5. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
    architecture: how THIS specific product (Agent A, Agent B, the
    franchise provisioning flow) is assembled on top of the engine.

@@ -1,14 +1,15 @@
 # Ornare Harness — Product Architecture
 
-**This document is the PRODUCT layer, built entirely on top of
-[`docs/ENGINE.md`](ENGINE.md) — the generic, reusable engine (the agent
-loop, model access, tools, identity, memory, profiles, config,
-pipelines, channels, access control, extensibility). Read `ENGINE.md`
-first.** Everything below assumes the engine's subsystems already exist
-and describes how THIS specific product (two agents, a franchise
-business) is assembled on top of them. If you find yourself describing a
-generic mechanism here rather than a specific use of one, it belongs in
-`ENGINE.md` instead — move it.
+**This document is the PRODUCT layer, built entirely on top of the
+engine specified in [`docs/engine/`](engine/) (start at
+[`docs/engine/00-OVERVIEW.md`](engine/00-OVERVIEW.md)) and governed by
+the cross-cutting rules in [`docs/standards/`](standards/) (security,
+cost, reliability, observability, context management, permissions).
+Read those first.** Everything below assumes the engine's subsystems
+already exist and describes how THIS specific product (two agents, a
+franchise business) is assembled on top of them. If you find yourself
+describing a generic mechanism here rather than a specific use of one,
+it belongs in `docs/engine/` instead — move it.
 
 **Status:** Day 1 of a 10-day build. This document is the single source of
 truth for how this specific product consumes the engine. Every later
