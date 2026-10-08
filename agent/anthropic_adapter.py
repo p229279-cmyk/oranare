@@ -18,7 +18,9 @@ file when that happens.
 
 from __future__ import annotations
 
-from agent.model_provider import Message, ModelResponse
+from typing import Iterator
+
+from agent.model_provider import Message, ModelResponse, StreamEvent
 
 
 class AnthropicProvider:
@@ -79,3 +81,52 @@ class AnthropicProvider:
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
         )
+
+    def stream(
+        self, messages: list[Message], system: str, tools: list[dict]
+    ) -> Iterator[StreamEvent]:
+        """Send a full request, get the response back piece by piece.
+
+        Uses the real SDK's `messages.stream()` context manager and
+        translates its raw stream events into our engine's StreamEvent
+        shape. We deliberately translate only the event types a caller
+        actually needs to react to incrementally (text arriving, the
+        stream ending) rather than exposing every raw SDK event type —
+        same "ask what the caller needs" principle as the rest of this
+        file. A caller that needs the complete final message (e.g. to
+        know the final stop_reason or token counts) reads it from the
+        "message_stop" event's data, built the same way chat() builds
+        a ModelResponse.
+        """
+        anthropic_messages = [
+            {"role": m.role, "content": m.content} for m in messages
+        ]
+
+        with self._client.messages.stream(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            system=system,
+            messages=anthropic_messages,
+            tools=tools,
+        ) as stream:
+            for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                    yield StreamEvent(type="text_delta", data=event.delta.text)
+                elif event.type == "message_stop":
+                    final = stream.get_final_message()
+                    if final.stop_reason is None:
+                        raise ValueError(
+                            "Anthropic API returned stop_reason=None at "
+                            "the end of a completed stream — this should "
+                            "be impossible; treat as a provider-side "
+                            "anomaly, not a retryable error."
+                        )
+                    yield StreamEvent(
+                        type="message_stop",
+                        data=ModelResponse(
+                            content=final.content,
+                            stop_reason=final.stop_reason,
+                            input_tokens=final.usage.input_tokens,
+                            output_tokens=final.usage.output_tokens,
+                        ),
+                    )
