@@ -388,6 +388,88 @@ numbers to multiply against instead of guesses.
 
 ---
 
+## KNOWLEDGE: `retry_utils.py` and `TurnRetryState`, explained from scratch
+
+Two more real Hermes files that back up Part 2's category E (retry/
+failover) — worth understanding in detail before deciding what we
+actually need, because "retry logic" is not one simple thing.
+
+### What `retry_utils.py` actually does
+
+**File:** `/home/ubuntu/.hermes/hermes-agent/agent/retry_utils.py` (8,224 bytes)
+
+**The core problem it solves:** when you retry a failed request, "wait a
+fixed amount and try again" sounds simple but causes a real issue
+called a **thundering herd** — imagine 50 of your requests all get
+rate-limited at the exact same moment, and all 50 wait exactly 5
+seconds and retry at the exact same moment again. They'll just collide
+and get rate-limited again, together, forever. The fix is **jitter** —
+adding a small random amount to the wait time, so retries spread out
+instead of landing in sync.
+
+Three real pieces inside it:
+
+1. **`parse_retry_after_seconds()`** — many APIs, when they rate-limit
+   you, politely tell you exactly how long to wait via a `Retry-After`
+   header (e.g. "wait 12 seconds" or a specific timestamp). This
+   function reads that header in whatever format it comes in (a plain
+   number, or an HTTP-style date) and converts it into "wait this many
+   seconds." **Why this matters:** if the server tells you exactly how
+   long to wait, guessing your own delay is worse than just listening
+   to it.
+
+2. **`jittered_backoff(attempt)`** — when there's no `Retry-After`
+   header to read, this computes a wait time that **doubles each
+   attempt** (5s → 10s → 20s → 40s...) up to a cap, **plus
+   randomness**, so repeated failures don't retry faster and faster
+   forever, and concurrent retries don't collide.
+
+3. **The Z.AI-specific functions** (`is_zai_coding_overload_error`,
+   `adaptive_rate_limit_backoff`, `zai_coding_overload_retry_ceiling`)
+   — these are hyper-specific to ONE particular third-party AI
+   provider's known quirky behavior (a specific error code `1305` from
+   a specific endpoint). This is Hermes being thick in category B again
+   (multi-vendor support) — irrelevant to us since we only use
+   Anthropic directly.
+
+### What `TurnRetryState` actually does
+
+**File:** `/home/ubuntu/.hermes/hermes-agent/agent/turn_retry_state.py` (4,980 bytes)
+
+**The core problem it solves:** when one single request to the model
+fails, Hermes doesn't just "retry the same thing" — it might try
+several DIFFERENT specific fixes in sequence (refresh an expired
+credential, shrink an oversized conversation, strip a broken piece of
+data) before giving up. Each one of those specific fixes should only be
+attempted once per request, otherwise the code could loop forever
+trying the same fix repeatedly if it doesn't work.
+
+The comment in the file explains it plainly: this used to be ~16
+separate `True`/`False` flag variables scattered through a single
+2,400-line function (one flag per possible fix, like
+`codex_auth_retry_attempted`, `thinking_sig_retry_attempted`,
+`image_shrink_retry_attempted`). `TurnRetryState` just bundles all 16
+flags into one clean object, created fresh for each new attempt, so the
+code reads `state.image_shrink_retry_attempted = True` instead of a
+loose floating variable with no clear home.
+
+### The final decision on E, folded in here
+
+- **F — Model metadata/pricing.** Needed eventually for the cost
+  ledger, but it's not blocking anything today since no cost-ledger
+  code exists yet either. I'd build this alongside whenever we actually
+  implement `docs/standards/COST.md`'s cost tracking, not in isolation
+  now.
+
+**Do we need a `TurnRetryState`-style object right now? No** — that
+pattern only earns its keep once you have MULTIPLE distinct recovery
+strategies running in one request (which is what Hermes has, with 16 of
+them). Right now we're only adding ONE recovery strategy (basic
+retry-with-backoff), so a single boolean/counter is enough; introducing
+a whole state object for one flag would be premature structure.
+
+---
+
 ## Part 3 — The actual decision: what we need, what we don't, and why (summary table)
 
 | Category | Hermes has it because... | Do we need it? | Why / why not |
