@@ -60,8 +60,21 @@ work, not before it, not separately.
   `context_overflow` classification): jittered backoff, bounded retry
   loop, wired into `AnthropicProvider.chat()`/`stream()`, caught+fixed
   a real `ProviderInvariantError`-vs-`ValueError` classification bug.
+- **Second ModelProvider adapter — `OpenAIProvider`**
+  (`agent/adapters/openai/`, mirrors `agent/adapters/anthropic/`'s
+  exact shape): built to prove, not just assert, the engine's
+  "zero changes to the generic interface" design guarantee — confirmed
+  true, no changes needed to `model_provider.py`, the loop, or
+  `AnthropicProvider`. Retry/classification logic (`call_with_retry`,
+  `classify_error`) reused completely unchanged. Caught+fixed two real
+  bugs via live calls: (1) OpenAI's Chat Completions API has no
+  top-level `system` parameter — the system prompt is prepended as the
+  first message instead; (2) `gpt-5.6` rejects the legacy `max_tokens`
+  parameter outright (400 error) — fixed by switching to
+  `max_completion_tokens`. Live-verified end-to-end (`chat()` and
+  `stream()`) against the real OpenAI API with `gpt-5.6-luna`.
 
-Full detail on both: `docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md`.
+Full detail on all of the above: `docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md`.
 
 ---
 
