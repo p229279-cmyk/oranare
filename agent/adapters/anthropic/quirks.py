@@ -5,38 +5,67 @@ Facts specific to individual Claude models — things that differ model
 by model, that the rest of the engine should never have to know or
 care about. See docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md
 "Part 2, category C" for the full reasoning behind why this file
-exists and why it's scoped the way it is.
+exists.
 
-This is a SMALL, SCOPED version of what Hermes's real
-agent/anthropic_adapter.py does with its _ANTHROPIC_OUTPUT_LIMITS table
-and _get_anthropic_max_output() function — same idea (a table + a
-lookup function), but covering only the handful of models we ourselves
-actually use, not Hermes's full cross-vendor, many-model-family table.
+UPDATED per explicit instruction: this table covers ALL real Claude
+model families (Fable, Sonnet 5, Opus 4.x, Sonnet 4.x, Haiku 4.5,
+Claude 4, Claude 3.7, Claude 3.5, Claude 3), not just the specific
+models we currently call — give the engine access to every model
+Anthropic actually offers, not a narrowed-down list. This mirrors
+Hermes's real _ANTHROPIC_OUTPUT_LIMITS table
+(/home/ubuntu/.hermes/hermes-agent/agent/anthropic_adapter.py) closely,
+intentionally: real per-model values, cross-checked against Hermes's
+own table rather than guessed, since Hermes has already done the real
+research here. The one deliberate omission: Hermes's third-party
+Anthropic-COMPATIBLE entries (minimax, qwen3) are NOT carried, because
+those aren't Claude models at all — they're a different vendor's API
+that happens to speak Anthropic's wire format (category B, which this
+project does not need — see 01c-ornare-vs-hermes.md).
 
-As more model-specific facts become relevant to us (e.g. whether a
-model supports extended "thinking" mode, or a specific effort level),
-they belong in THIS file too — this package (agent/adapters/anthropic/)
-is the deliberate, scoped home for all such Anthropic-specific
-knowledge, kept separate from provider.py's request/response logic so
-neither file has to grow to accommodate the other's concerns.
+As more model-specific facts become relevant (e.g. whether a model
+supports extended "thinking" mode, or a specific effort level), they
+belong in THIS file too — this package (agent/adapters/anthropic/) is
+the deliberate, scoped home for all such Anthropic-specific knowledge,
+kept separate from provider.py's request/response logic so neither
+file has to grow to accommodate the other's concerns.
 """
 
 from __future__ import annotations
 
-# Real max output token limits for the specific Claude models we
-# ourselves actually use, confirmed against Anthropic's own current
-# documentation and cross-checked against Hermes's own real table
+# Real max output token limits for every real Claude model family,
+# cross-checked against Hermes's own real table
 # (/home/ubuntu/.hermes/hermes-agent/agent/anthropic_adapter.py,
-# _ANTHROPIC_OUTPUT_LIMITS) rather than guessed.
-#
-# Deliberately NOT Hermes's full table: we don't carry entries for
-# model families we don't use (Opus, older Claude 3.x generations,
-# third-party Anthropic-compatible endpoints like MiniMax/Qwen) —
-# adding those now would be speculative, matching the project's
-# standing YAGNI discipline.
+# _ANTHROPIC_OUTPUT_LIMITS) rather than guessed. Covers the full
+# Claude lineup, not just the specific models this project currently
+# calls, per explicit instruction.
 ANTHROPIC_MAX_OUTPUT_TOKENS: dict[str, int] = {
+    # Mythos-class named models (claude-fable-5, ...) — 1M context, reasoning
+    "claude-fable": 128_000,
+    # Claude Sonnet 5
+    "claude-sonnet-5": 128_000,
+    # Claude 4.8
+    "claude-opus-4-8": 128_000,
+    # Claude 4.7
+    "claude-opus-4-7": 128_000,
+    # Claude 4.6
+    "claude-opus-4-6": 128_000,
+    "claude-sonnet-4-6": 64_000,
+    # Claude 4.5
+    "claude-opus-4-5": 64_000,
     "claude-sonnet-4-5": 64_000,
     "claude-haiku-4-5": 64_000,
+    # Claude 4
+    "claude-opus-4": 32_000,
+    "claude-sonnet-4": 64_000,
+    # Claude 3.7
+    "claude-3-7-sonnet": 128_000,
+    # Claude 3.5
+    "claude-3-5-sonnet": 8_192,
+    "claude-3-5-haiku": 8_192,
+    # Claude 3
+    "claude-3-opus": 4_096,
+    "claude-3-sonnet": 4_096,
+    "claude-3-haiku": 4_096,
 }
 
 # If we're ever given a model name not in the table above (e.g. a
@@ -45,8 +74,8 @@ ANTHROPIC_MAX_OUTPUT_TOKENS: dict[str, int] = {
 # risks an API error if the real model's limit is lower; guessing low
 # only risks under-using capacity, which is safe and visible rather
 # than a hard failure. 4096 matches the oldest, lowest real Claude 3.x
-# limit Hermes's own table carries, so it is a value we know some real
-# Claude model genuinely supports.
+# limit in the table above, so it is a value we know some real Claude
+# model genuinely supports.
 _SAFE_DEFAULT_MAX_OUTPUT_TOKENS = 4_096
 
 # The Anthropic Python SDK refuses a NON-STREAMING call if max_tokens is
@@ -69,13 +98,14 @@ def get_max_output_tokens(model: str) -> int:
     (stream() has no non-streaming-timeout restriction).
 
     Deliberately simpler than Hermes's _get_anthropic_max_output():
-    Hermes needs substring matching because it has to handle
+    Hermes needs substring matching because it also has to handle
     date-stamped model IDs (claude-sonnet-4-5-20250929) and variant
-    suffixes (:1m, :fast) across many model families. Our own model
-    names don't currently include either of those, so an exact-match
-    lookup is honest and sufficient — this function should be upgraded
-    to substring matching the moment we actually pass a model name in
-    one of those shapes, not before.
+    suffixes (:1m, :fast). We carry the same real per-model VALUES as
+    Hermes now, but our own model names don't currently arrive in
+    either of those messier shapes, so an exact-match lookup is honest
+    and sufficient — this function should be upgraded to substring
+    matching the moment we actually pass a model name in one of those
+    shapes, not before.
     """
     return ANTHROPIC_MAX_OUTPUT_TOKENS.get(model, _SAFE_DEFAULT_MAX_OUTPUT_TOKENS)
 

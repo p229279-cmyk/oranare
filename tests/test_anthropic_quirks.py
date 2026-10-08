@@ -15,6 +15,12 @@ from agent.adapters.anthropic.quirks import (
 def test_known_models_return_their_real_limit():
     assert get_max_output_tokens("claude-sonnet-4-5") == 64_000
     assert get_max_output_tokens("claude-haiku-4-5") == 64_000
+    assert get_max_output_tokens("claude-opus-4-5") == 64_000
+    assert get_max_output_tokens("claude-opus-4-6") == 128_000
+    assert get_max_output_tokens("claude-sonnet-5") == 128_000
+    assert get_max_output_tokens("claude-fable") == 128_000
+    assert get_max_output_tokens("claude-3-5-sonnet") == 8_192
+    assert get_max_output_tokens("claude-3-opus") == 4_096
 
 
 def test_unknown_model_falls_back_to_safe_conservative_default():
@@ -28,14 +34,21 @@ def test_unknown_model_falls_back_to_safe_conservative_default():
     assert result <= min(ANTHROPIC_MAX_OUTPUT_TOKENS.values())
 
 
-def test_table_only_contains_models_we_actually_use():
-    """Guards against silently growing this into Hermes's full
-    many-model-family table - this project's models should be the only
-    keys here per the project's YAGNI discipline (see category C)."""
-    assert set(ANTHROPIC_MAX_OUTPUT_TOKENS.keys()) == {
-        "claude-sonnet-4-5",
-        "claude-haiku-4-5",
+def test_table_covers_the_full_claude_lineup_not_just_our_own_models():
+    """Per explicit instruction: this table gives access to every real
+    Claude model family (Fable, Sonnet 5, Opus 4.x, Sonnet 4.x, Haiku
+    4.5, Claude 4, Claude 3.7, Claude 3.5, Claude 3) - not narrowed
+    down to only the specific models this project currently calls."""
+    expected_families = {
+        "claude-fable", "claude-sonnet-5",
+        "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6",
+        "claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5",
+        "claude-opus-4", "claude-sonnet-4",
+        "claude-3-7-sonnet",
+        "claude-3-5-sonnet", "claude-3-5-haiku",
+        "claude-3-opus", "claude-3-sonnet", "claude-3-haiku",
     }
+    assert set(ANTHROPIC_MAX_OUTPUT_TOKENS.keys()) == expected_families
 
 
 def test_default_max_tokens_stays_under_the_nonstreaming_safe_ceiling():
@@ -52,13 +65,13 @@ def test_default_max_tokens_stays_under_the_nonstreaming_safe_ceiling():
 
 
 def test_default_max_tokens_never_exceeds_the_models_real_capability():
-    """For a hypothetical model whose real limit were SMALLER than our
-    non-streaming ceiling, the default must still respect the model's
-    own real limit, not just the ceiling."""
-    # claude-haiku-4-5's real limit (64_000) is above the ceiling, so
-    # this mainly documents the min() behavior rather than exercising
-    # a model below the ceiling (we don't have one in our small table
-    # today) - still a meaningful assertion on the actual function.
+    """For a model whose real limit is SMALLER than our non-streaming
+    ceiling, the default must respect the model's own real limit, not
+    just the ceiling — now directly testable since the table includes
+    older Claude 3.x models with genuinely lower real limits."""
     assert get_default_max_tokens("claude-haiku-4-5") <= get_max_output_tokens(
         "claude-haiku-4-5"
     )
+    # claude-3-opus's real limit (4_096) is BELOW the 20_000 ceiling -
+    # the default must be the model's real limit, not the ceiling.
+    assert get_default_max_tokens("claude-3-opus") == 4_096

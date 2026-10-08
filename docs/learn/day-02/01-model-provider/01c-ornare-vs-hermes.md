@@ -201,12 +201,22 @@ ourselves will ever actually use, with their real max-output limits —
 not Hermes's full cross-vendor pattern-matching system, just enough to
 stop guessing a number and hope it's right.
 
-**UPDATE — this is now built.** `agent/adapters/anthropic/quirks.py`
-holds `ANTHROPIC_MAX_OUTPUT_TOKENS` (just our 2 real models,
-`claude-sonnet-4-5` and `claude-haiku-4-5`, each confirmed at 64,000 —
-cross-checked against Hermes's own real table rather than guessed) and
-`get_max_output_tokens()`. `AnthropicProvider.__init__` now uses this
-instead of a hardcoded `4096`.
+**UPDATE — this is now built, and later expanded to the full Claude
+lineup per explicit instruction.** `agent/adapters/anthropic/quirks.py`
+holds `ANTHROPIC_MAX_OUTPUT_TOKENS` — originally scoped to just our 2
+real models, then deliberately widened to cover EVERY real Claude model
+family (Fable, Sonnet 5, Opus 4.x, Sonnet 4.x, Haiku 4.5, Claude 4,
+Claude 3.7, Claude 3.5, Claude 3), mirroring Hermes's own real table
+closely rather than narrowing it — because Hermes has already done the
+real research on these values, and giving the engine access to every
+model Anthropic offers (not just the ones we happen to call today)
+costs nothing and removes a future "we need to add this model" step.
+The one deliberate omission: Hermes's third-party Anthropic-COMPATIBLE
+entries (`minimax`, `qwen3`) are still NOT carried — those aren't
+Claude models at all, they're a different vendor's API that happens to
+speak Anthropic's wire format (category B, which this project still
+does not need). `AnthropicProvider.__init__` uses
+`get_max_output_tokens()` instead of a hardcoded `4096`.
 
 A real bug was caught in the process, discovered by a LIVE call, not
 assumed: using the model's raw 64,000-token limit as the DEFAULT broke
@@ -226,7 +236,9 @@ STREAMED answer can still pass `get_max_output_tokens(model)` as an
 explicit `max_tokens` value. Both the bug and the fix are covered by
 real tests in `tests/test_anthropic_quirks.py` and
 `tests/test_anthropic_adapter.py`, and the fix was re-verified with
-another live API call after the change.
+another live API call after the change. With the full lineup now in
+the table, the "model below the ceiling" case (e.g. `claude-3-opus` at
+a real 4,096 limit) is directly testable too, not just theoretical.
 
 ---
 
