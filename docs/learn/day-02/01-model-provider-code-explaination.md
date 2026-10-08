@@ -52,3 +52,34 @@ A message's content can genuinely be one of two different shapes:
 If we tried to force one strict type here, we'd end up having to invent a type that copies Anthropic's own internal format for how it structures tool calls. And that's exactly the trap this whole file is designed to avoid: keeping the REST of the engine completely unaware of what Anthropic's API specifically looks like.
 
 The actual strict shape-checking still happens — just not here. It happens later, inside `AnthropicProvider`, which is the ONE place in the whole system that's allowed to know Anthropic's exact wire format. Everywhere else stays vendor-agnostic.
+
+## What `Protocol` is, and why `ModelProvider` uses it instead of a normal base class
+
+A `Protocol` is Python's way of saying "any class that HAS these methods counts as this type" — without that class needing to explicitly say `class AnthropicProvider(ModelProvider):`. It's checked by *shape*, not by inheritance.
+
+**The normal way (inheritance):**
+```python
+class ModelProvider(ABC):
+    @abstractmethod
+    def chat(self, ...): ...
+
+class AnthropicProvider(ModelProvider):   # must explicitly inherit
+    def chat(self, ...): ...
+```
+
+**The `Protocol` way (what we did):**
+```python
+class ModelProvider(Protocol):
+    def chat(self, ...): ...
+
+class AnthropicProvider:   # no inheritance needed at all
+    def chat(self, ...): ...   # just HAS the right methods — that's enough
+```
+
+## Why this matters for us specifically
+
+A new model provider (say, a second vendor someday) can be added by just writing a plain class with the right methods — it never has to know `ModelProvider` exists, never has to import it, never has to remember to inherit from it. This directly matches the test we set for the whole engine: adding something new should never require touching an existing file.
+
+## Why both methods take the exact same three arguments
+
+`chat(messages, system, tools)` and `stream(messages, system, tools)` are deliberately symmetric — same inputs, just a different way of getting the output back (all-at-once vs. piece-by-piece). This means the Agent Loop can pick whichever one it needs without reshaping its data first.
