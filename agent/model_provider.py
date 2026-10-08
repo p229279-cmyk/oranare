@@ -76,3 +76,55 @@ class ModelProvider(Protocol):
     ) -> Iterator[StreamEvent]:
         """Send a full request, get the response back piece by piece."""
         ...
+
+
+FailureType = Literal[
+    "rate_limit",
+    "server_error",
+    "auth",
+    "bad_request",
+    "timeout",
+    "unknown",
+]
+
+
+@dataclass
+class ClassifiedError:
+    """The result of classify_error(): what kind of failure this was,
+    and whether retrying has any real chance of succeeding.
+
+    See docs/standards/RELIABILITY.md §1 for the full recovery table
+    this classification feeds into.
+    """
+
+    failure_type: FailureType
+    should_retry: bool
+    message: str
+
+
+def classify_error(error: Exception) -> ClassifiedError:
+    """Classify a raw exception from the Anthropic SDK into a
+    ClassifiedError, per the failure table in
+    docs/learn/day-02/01-model-provider.md's "Deeper levels" section.
+
+    Built and tested standalone (see tests/) — no live API call needed
+    to prove this logic is correct, per the project's standing honesty
+    rule on testing without a live key.
+    """
+    status_code = getattr(error, "status_code", None)
+
+    if status_code == 429:
+        return ClassifiedError("rate_limit", should_retry=True, message=str(error))
+    if status_code in (500, 502, 503, 529):
+        return ClassifiedError("server_error", should_retry=True, message=str(error))
+    if status_code == 401:
+        return ClassifiedError("auth", should_retry=False, message=str(error))
+    if status_code == 400:
+        return ClassifiedError("bad_request", should_retry=False, message=str(error))
+
+    # No status code at all is the signature of a network-level failure
+    # (connection error, read timeout) rather than an API-level one.
+    if status_code is None and isinstance(error, (TimeoutError, OSError)):
+        return ClassifiedError("timeout", should_retry=True, message=str(error))
+
+    return ClassifiedError("unknown", should_retry=True, message=str(error))

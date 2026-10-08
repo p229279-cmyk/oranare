@@ -164,3 +164,28 @@ Why it's written this way:
   Agent Loop should be able to switch between `chat` and `stream` for
   the same request without reshaping its own data first.
 
+### Step 3 — the failure classifier (`classify_error`)
+
+What this code does: given a raw error from the Anthropic SDK, decides
+WHICH of the failure types from the "Deeper levels" table above it is,
+and returns a `ClassifiedError` carrying that decision plus whether a
+retry is worth attempting.
+
+Why it's written this way:
+- This is built and tested **on its own, before any real API call
+  exists to produce errors for it.** We can fabricate fake exceptions
+  with the right status codes and prove the classifier picks correctly
+  — no network, no API key, no flakiness. This matches the project's
+  standing honesty rule: logic that doesn't require a live model call
+  must be fully testable without one.
+- `should_retry: bool` is a field on the result, not something the
+  caller has to re-derive from the failure type — the classifier is the
+  one place that encodes "is this worth trying again," so that decision
+  never gets silently reimplemented differently somewhere else in the
+  codebase.
+- The classifier reads the HTTP status code first (most reliable
+  signal), and only falls back to inspecting the error message text when
+  the status code alone is ambiguous (e.g. a 400 could be several
+  different real problems depending on what the message says).
+
+
