@@ -1,11 +1,14 @@
-# Day 2, Component 1b — AnthropicProvider (agent/anthropic_adapter.py)
+# Day 2, Component 1b — AnthropicProvider (agent/adapters/anthropic_adapter.py)
 
 This is the concrete adapter for `ModelProvider` — the one piece of code
 in the whole engine that is actually ALLOWED to know Anthropic's real
 API shape. See `01-model-provider.md` first for the generic interface
 this implements; this file is specifically about the concrete class,
-kept in its own file (`agent/anthropic_adapter.py`), matching Hermes's
-real one-file-per-adapter convention.
+kept in its own file (`agent/adapters/anthropic_adapter.py`), matching
+Hermes's real one-file-per-adapter convention. One deliberate
+difference: Hermes keeps these files flat directly in `agent/`, with no
+dedicated subfolder; we group ours under `agent/adapters/` instead,
+anticipating more adapters being added over time.
 
 ## Whole
 
@@ -143,7 +146,7 @@ protocol-level bookkeeping the caller should never have to care about.*
 
 ## Coding
 
-Already built, in `agent/anthropic_adapter.py`, in this order:
+Already built, in `agent/adapters/anthropic_adapter.py`, in this order:
 
 1. `__init__` — construct the real SDK client.
 2. `chat()` — the non-streaming path, built and live-verified first

@@ -13,7 +13,7 @@ it — confirmed against Hermes's real source
 
 | Layer | Language | Matches Hermes's own real choice |
 |---|---|---|
-| Agent core / runtime (loop, providers, tools, prompts, session store) | **Python 3.11+** | `agent/conversation_loop.py`, `agent/anthropic_adapter.py`, `tools/registry.py`, `hermes_state.py` — all `.py` |
+| Agent core / runtime (loop, providers, tools, prompts, session store) | **Python 3.11+** | `agent/conversation_loop.py`, `agent/anthropic_adapter.py`, `tools/registry.py`, `hermes_state.py` — all `.py` (note: Hermes's own layout; our engine groups adapters under `agent/adapters/` instead, see below) |
 | CLI / orchestration scripts | **Python** | `cli.py` |
 | Gateway / scheduler | **Python** | `gateway/run.py` |
 | WhatsApp bridge specifically | **Node.js** (Baileys) | `scripts/whatsapp-bridge/`, built on `@whiskeysockets/baileys` |

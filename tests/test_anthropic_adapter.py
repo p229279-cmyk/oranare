@@ -1,8 +1,8 @@
 """
 tests/test_anthropic_adapter.py
 
-Tests for agent/anthropic_adapter.py's AnthropicProvider — see
-docs/learn/day-02/01-model-provider.md Steps 4 and 5.
+Tests for agent/adapters/anthropic_adapter.py's AnthropicProvider —
+see docs/learn/day-02/01-model-provider.md Steps 4 and 5.
 
 Honesty note, per the project's standing testing standard: most of these
 tests use a mocked SDK client, not a real network call, to prove the
@@ -16,7 +16,7 @@ key itself was never written to any file in this repo.
 
 from unittest.mock import MagicMock, patch
 
-from agent.anthropic_adapter import AnthropicProvider
+from agent.adapters.anthropic_adapter import AnthropicProvider
 from agent.model_provider import Message
 
 

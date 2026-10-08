@@ -1,19 +1,24 @@
 """
-agent/anthropic_adapter.py
+agent/adapters/anthropic_adapter.py
 
 The ModelProvider adapter that actually talks to Anthropic's real API.
 This is the ONE place in the whole engine allowed to know Anthropic's
 specific wire format — see docs/engine/02-MODEL-PROVIDER.md.
 
 Kept as its own separate file, not folded into model_provider.py,
-matching Hermes's own real pattern: Hermes keeps every provider adapter
+matching Hermes's own real pattern of one file per provider adapter
 (anthropic_adapter.py, bedrock_adapter.py, vertex_adapter.py,
 gemini_native_adapter.py, codex_responses_adapter.py,
-azure_identity_adapter.py) as its own file alongside the generic
-interface, never merged into one shared module. A future second
-provider for this engine gets its own file here too, e.g.
-agent/openai_adapter.py — zero changes to model_provider.py or to this
-file when that happens.
+azure_identity_adapter.py — never merged into one shared module).
+
+One deliberate difference from Hermes: Hermes keeps these files flat
+directly in agent/, with no dedicated subfolder. We group ours under
+agent/adapters/ instead — a conscious choice anticipating more adapters
+being added over time, keeping agent/ itself from accumulating many
+individual provider files as the engine grows. A future second provider
+for this engine gets its own new file here too, e.g.
+agent/adapters/openai_adapter.py — zero changes to model_provider.py or
+to this file when that happens.
 """
 
 from __future__ import annotations
