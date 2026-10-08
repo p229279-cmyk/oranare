@@ -144,3 +144,23 @@ Why it's written this way:
   afterthought retrofitted once someone asks "wait, what did this
   cost?"
 
+### Step 2 — the `ModelProvider` interface contract
+
+What this code does: declares the two methods (`chat`, `stream`) every
+provider adapter MUST implement — the contract itself, with zero logic
+inside it.
+
+Why it's written this way:
+- `Protocol` (not an abstract base class) was chosen because it's
+  structural typing — a class satisfies this interface just by HAVING
+  the right methods with the right shapes, no explicit
+  `class AnthropicProvider(ModelProvider)` inheritance required. This
+  matches the engine's own stated design test
+  (`docs/engine/00-OVERVIEW.md`): a new provider should be addable
+  purely by writing a new class with the right shape, never by touching
+  this file.
+- Both methods take the exact same three arguments
+  (`messages`, `system`, `tools`) — this symmetry is deliberate. The
+  Agent Loop should be able to switch between `chat` and `stream` for
+  the same request without reshaping its own data first.
+

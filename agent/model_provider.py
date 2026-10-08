@@ -11,7 +11,7 @@ speaks. Nothing in this file yet knows Anthropic exists.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Iterator, Literal, Protocol
 
 
 @dataclass
@@ -53,3 +53,26 @@ class StreamEvent:
 
     type: str
     data: Any = field(default=None)
+
+
+class ModelProvider(Protocol):
+    """The contract every model-vendor adapter must satisfy.
+
+    This is a Protocol (structural typing), not an abstract base class:
+    a class satisfies this interface just by having these two methods
+    with these shapes — no explicit inheritance required. See
+    docs/engine/02-MODEL-PROVIDER.md for the full spec and the reasoning
+    behind this interface's exact shape.
+    """
+
+    def chat(
+        self, messages: list[Message], system: str, tools: list[dict]
+    ) -> ModelResponse:
+        """Send a full request, get one complete response back."""
+        ...
+
+    def stream(
+        self, messages: list[Message], system: str, tools: list[dict]
+    ) -> Iterator[StreamEvent]:
+        """Send a full request, get the response back piece by piece."""
+        ...
