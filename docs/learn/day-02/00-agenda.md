@@ -37,12 +37,13 @@ ModelProvider  →  ToolRegistry  →  Agent Loop
 3. **Verify** — a real test proving the component's core contract, not
    just "it runs."
 
-## Today's 3 files
+## Today's files
 
 | # | Learning doc | Code | Spec it implements |
 |---|---|---|---|
 | 1 | `docs/learn/day-02/01-model-provider.md` | `agent/model_provider.py` | `docs/engine/02-MODEL-PROVIDER.md` |
+| 1b | `docs/learn/day-02/01b-anthropic-adapter.md` | `agent/anthropic_adapter.py` | `docs/engine/02-MODEL-PROVIDER.md` (concrete adapter) |
 | 2 | `docs/learn/day-02/02-tool-registry.md` | `tools/registry.py` | `docs/engine/03-TOOLS.md` |
 | 3 | `docs/learn/day-02/03-agent-loop.md` | `agent/loop.py` | `docs/engine/01-AGENT-LOOP.md` |
 
-Starting with #1 now.
+1 and 1b done. Continuing with 2 (`ToolRegistry`) next.
