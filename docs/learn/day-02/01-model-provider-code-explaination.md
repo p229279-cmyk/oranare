@@ -83,3 +83,56 @@ A new model provider (say, a second vendor someday) can be added by just writing
 ## Why both methods take the exact same three arguments
 
 `chat(messages, system, tools)` and `stream(messages, system, tools)` are deliberately symmetric — same inputs, just a different way of getting the output back (all-at-once vs. piece-by-piece). This means the Agent Loop can pick whichever one it needs without reshaping its data first.
+
+## What `classify_error` actually does
+
+When a call to the model fails, we don't just blindly retry a few times and hope. We look at WHAT KIND of failure it was, and decide the right response for that specific kind — because not every failure is worth retrying.
+
+```python
+def classify_error(error: Exception) -> ClassifiedError:
+    status_code = getattr(error, "status_code", None)
+
+    if status_code == 429:
+        return ClassifiedError("rate_limit", should_retry=True, ...)
+    if status_code in (500, 502, 503, 529):
+        return ClassifiedError("server_error", should_retry=True, ...)
+    if status_code == 401:
+        return ClassifiedError("auth", should_retry=False, ...)
+    if status_code == 400:
+        return ClassifiedError("bad_request", should_retry=False, ...)
+    ...
+```
+
+## Why retrying everything the same way is wrong
+
+Imagine two failures:
+- **429 (rate limited)** — we sent requests too fast. Waiting a moment and trying again has a real chance of working.
+- **401 (bad API key)** — our key is wrong or expired. Trying again with the *same* bad key will fail **exactly the same way, every single time.**
+
+Treating both the same way (just "retry 3 times") wastes time and money on the 401 case — it can never succeed, no matter how many times you try. `classify_error` exists so the code can tell these two apart and react correctly to each.
+
+## Why `should_retry` is a field on the result, not decided later
+
+```python
+@dataclass
+class ClassifiedError:
+    failure_type: FailureType
+    should_retry: bool
+    message: str
+```
+
+The classifier makes the retry decision **once, in one place**. If instead every caller had to look at `failure_type` and re-decide "should I retry this?" themselves, that logic could drift — one caller might retry an `auth` failure by mistake, another might not. Baking `should_retry` directly into the result means there's only one place this decision is ever made, and it can't be gotten wrong twice.
+
+## Why we check `status_code` first, not the error message text
+
+Status codes are a reliable, structured signal — `429` always means rate-limited, `401` always means auth failed. Error message *text*, on the other hand, can vary (different wording, different languages, formatting changes between SDK versions). We read the status code first because it's the most trustworthy signal, and only fall back to inspecting text when the status code alone doesn't tell us enough.
+
+## Why this was tested without ever calling the real API
+
+```python
+class FakeAPIError(Exception):
+    def __init__(self, status_code, message="fake error"):
+        self.status_code = status_code
+```
+
+We built a fake error with just a `status_code` attribute — no real network call, no API key needed. This proves the *classification logic itself* is correct, completely separately from "does the real Anthropic API actually work." If this logic has a bug, we want to find it in a test that runs in milliseconds, not by waiting for a rare real failure in production.
