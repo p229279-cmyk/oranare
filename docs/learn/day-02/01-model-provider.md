@@ -47,7 +47,11 @@ Two methods make up the whole public surface:
   seeing partial output sooner genuinely matters.
 
 Underneath, ONE concrete implementation today: `AnthropicProvider` — the
-adapter that actually knows how to speak Anthropic's specific API.
+adapter that actually knows how to speak Anthropic's specific API. It
+lives in its own file (`agent/anthropic_adapter.py`), separate from the
+generic interface (`agent/model_provider.py`) — matching Hermes's real
+pattern of one file per provider adapter, never folded into a shared
+module.
 
 ## Relationships
 
@@ -57,8 +61,10 @@ Agent Loop  --calls-->  ModelProvider interface  --implemented by-->  AnthropicP
 
 The Agent Loop (tomorrow's component) will hold a reference to SOME
 `ModelProvider` — it will never know or care that it's specifically
-`AnthropicProvider` underneath. This is what lets us add a second vendor
-later (if we ever genuinely need to) without touching the loop at all.
+`AnthropicProvider` underneath, or which file that class happens to live
+in. This is what lets us add a second vendor later (if we ever genuinely
+need to) without touching the loop, the interface file, or any existing
+adapter's file at all — just one new file.
 
 ## Mechanisms
 
@@ -107,16 +113,24 @@ a guaranteed-identical result.
 
 ## Coding
 
-We'll build `agent/model_provider.py` in this order, one piece at a
-time:
+We build this in two files, one piece at a time:
 
 1. The shared data shapes every provider must speak (`Message`,
-   `ModelResponse`) — the "vendor-agnostic vocabulary."
+   `ModelResponse`) — the "vendor-agnostic vocabulary." Lives in
+   `agent/model_provider.py`.
 2. The `ModelProvider` interface itself (just the contract, no logic).
+   Also in `agent/model_provider.py`.
 3. The failure classifier — `classify_error()` — built and TESTED on
-   its own, before it's wired into anything that calls a real API.
+   its own, before it's wired into anything that calls a real API. Also
+   in `agent/model_provider.py`.
 4. `AnthropicProvider.chat()` — the simple, non-streaming path first.
+   Lives in its OWN file, `agent/anthropic_adapter.py`, not
+   `model_provider.py` — matching Hermes's real one-file-per-adapter
+   pattern (confirmed against Hermes's actual source:
+   `anthropic_adapter.py`, `bedrock_adapter.py`, `vertex_adapter.py`
+   are each their own file there too).
 5. `AnthropicProvider.stream()` — added once `chat()` is proven correct.
+   Same file as step 4.
 
 ## Code understanding
 
@@ -126,11 +140,28 @@ reasoning lives in
 
 1. **Shared data shapes** (`Message`, `ModelResponse`, `StreamEvent`) —
    the vendor-agnostic vocabulary every provider speaks. No Anthropic
-   mentioned anywhere in this step.
+   mentioned anywhere in this step. (`agent/model_provider.py`)
 2. **`ModelProvider` interface** (`chat`, `stream`) — the contract
    itself, as a `Protocol`, zero logic inside it.
+   (`agent/model_provider.py`)
 3. **Failure classifier** (`classify_error`) — maps a raw error to a
    failure type + a `should_retry` decision. Built and tested standalone
    with fabricated errors, 6/6 tests passing, no live API key needed.
+   Later hardened with 2 more tests against the REAL Anthropic SDK's
+   own exception classes, which caught and fixed a real bug (timeout
+   detection missed the SDK's actual `APITimeoutError`, which isn't a
+   subclass of `TimeoutError`/`OSError`). (`agent/model_provider.py`)
+4. **`AnthropicProvider.chat()`** — the real adapter that actually talks
+   to Anthropic's API: translates our `Message`/`tools` into Anthropic's
+   wire format, sends the request, translates the real response back
+   into our `ModelResponse` shape. Also fixed a second real bug found
+   while building this step: `ModelResponse.stop_reason` only allowed 3
+   values but the real SDK allows 7 — corrected to match exactly. Tested
+   with 3 mocked tests (request translation, response translation, and
+   a defensive guard for an impossible `stop_reason=None` case) plus one
+   LIVE verification call against the real API (Haiku, cheap model) that
+   confirmed the whole thing end to end. Lives in its own file,
+   `agent/anthropic_adapter.py` — see the Relationships section above
+   for why.
 
 
