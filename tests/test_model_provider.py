@@ -53,6 +53,40 @@ def test_timeout_is_retryable():
     assert result.should_retry is True
 
 
+def test_real_anthropic_timeout_error_is_classified_correctly():
+    """Guards against a real bug we found: anthropic.APITimeoutError is
+    NOT a subclass of TimeoutError/OSError, so classify_error() must
+    detect it by type name, not just isinstance(). This test uses the
+    REAL SDK exception class, not a fake stand-in, specifically to catch
+    a regression here."""
+    import anthropic
+    import httpx2
+
+    request = httpx2.Request("POST", "https://api.anthropic.com")
+    real_timeout = anthropic.APITimeoutError(request=request)
+    result = classify_error(real_timeout)
+    assert result.failure_type == "timeout"
+    assert result.should_retry is True
+
+
+def test_real_anthropic_rate_limit_error_is_classified_correctly():
+    """Same idea, but for the status-code path: proves classify_error()
+    works against the SDK's real RateLimitError, not just our
+    FakeAPIError stand-in."""
+    import anthropic
+    import httpx2
+
+    response = httpx2.Response(
+        429, request=httpx2.Request("POST", "https://api.anthropic.com")
+    )
+    real_error = anthropic.RateLimitError(
+        "rate limited", response=response, body=None
+    )
+    result = classify_error(real_error)
+    assert result.failure_type == "rate_limit"
+    assert result.should_retry is True
+
+
 def test_unrecognized_error_defaults_to_retryable_unknown():
     result = classify_error(ValueError("something we've never seen"))
     assert result.failure_type == "unknown"

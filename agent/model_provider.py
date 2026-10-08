@@ -36,11 +36,22 @@ class ModelResponse:
 
     `stop_reason` tells the Agent Loop WHY the model stopped generating
     — this is what the loop's step-3 "tool call or final answer?"
-    decision is actually based on.
+    decision is actually based on. The full set of values matches
+    Anthropic's real API (verified against the installed SDK, not
+    guessed): "end_turn", "max_tokens", "stop_sequence", "tool_use",
+    "pause_turn", "refusal", "model_context_window_exceeded".
     """
 
     content: Any
-    stop_reason: Literal["end_turn", "tool_use", "max_tokens"]
+    stop_reason: Literal[
+        "end_turn",
+        "max_tokens",
+        "stop_sequence",
+        "tool_use",
+        "pause_turn",
+        "refusal",
+        "model_context_window_exceeded",
+    ]
     input_tokens: int
     output_tokens: int
 
@@ -122,9 +133,19 @@ def classify_error(error: Exception) -> ClassifiedError:
     if status_code == 400:
         return ClassifiedError("bad_request", should_retry=False, message=str(error))
 
-    # No status code at all is the signature of a network-level failure
-    # (connection error, read timeout) rather than an API-level one.
-    if status_code is None and isinstance(error, (TimeoutError, OSError)):
+    # Timeouts/connection failures have NO status_code (nothing ever
+    # responded), unlike every case above where a status_code is always
+    # present. We check by exception TYPE NAME rather than importing the
+    # anthropic SDK's specific exception classes directly, so this file
+    # stays usable even if the SDK isn't installed (e.g. during a pure
+    # unit-test run) — the real adapter file still imports anthropic
+    # directly, but this classifier does not need to.
+    error_type_names = {t.__name__ for t in type(error).__mro__}
+    if status_code is None and (
+        isinstance(error, (TimeoutError, OSError))
+        or "APITimeoutError" in error_type_names
+        or "APIConnectionError" in error_type_names
+    ):
         return ClassifiedError("timeout", should_retry=True, message=str(error))
 
     return ClassifiedError("unknown", should_retry=True, message=str(error))
