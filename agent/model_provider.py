@@ -149,3 +149,66 @@ def classify_error(error: Exception) -> ClassifiedError:
         return ClassifiedError("timeout", should_retry=True, message=str(error))
 
     return ClassifiedError("unknown", should_retry=True, message=str(error))
+
+
+class AnthropicProvider:
+    """The ModelProvider adapter that actually talks to Anthropic's
+    real API. This is the ONE place in the whole engine allowed to know
+    Anthropic's specific wire format — see docs/engine/02-MODEL-PROVIDER.md.
+
+    Satisfies the ModelProvider Protocol structurally (see the Protocol
+    above) — note there is no `class AnthropicProvider(ModelProvider):`
+    inheritance; having the right methods is enough.
+    """
+
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-5", max_tokens: int = 4096):
+        # Imported here, not at module level, so the rest of this file
+        # (the Protocol, the data shapes, classify_error) stays usable
+        # even in a context where the anthropic package isn't installed.
+        import anthropic
+
+        self._client = anthropic.Anthropic(api_key=api_key)
+        self._model = model
+        self._max_tokens = max_tokens
+
+    def chat(
+        self, messages: list[Message], system: str, tools: list[dict]
+    ) -> ModelResponse:
+        """Send a full request, get one complete response back.
+
+        Translates our engine's vendor-agnostic Message/tools shape
+        into Anthropic's exact wire format, sends it, and translates
+        the real response back into our engine's ModelResponse shape.
+        """
+        anthropic_messages = [
+            {"role": m.role, "content": m.content} for m in messages
+        ]
+
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            system=system,
+            messages=anthropic_messages,
+            tools=tools,
+        )
+
+        # The SDK types stop_reason as Optional — None only happens on
+        # an incomplete/streaming-in-progress response, which this
+        # non-streaming call should never produce. We fail loudly with
+        # a clear message rather than let a None silently violate our
+        # own ModelResponse.stop_reason contract (which requires one of
+        # the 7 real values, never None) or crash with a cryptic
+        # dataclass type error two layers away from the real cause.
+        if response.stop_reason is None:
+            raise ValueError(
+                "Anthropic API returned stop_reason=None on a "
+                "non-streaming response — this should be impossible; "
+                "treat as a provider-side anomaly, not a retryable error."
+            )
+
+        return ModelResponse(
+            content=response.content,
+            stop_reason=response.stop_reason,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+        )
