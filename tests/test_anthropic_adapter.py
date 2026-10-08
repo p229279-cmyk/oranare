@@ -1,7 +1,7 @@
 """
 tests/test_anthropic_adapter.py
 
-Tests for agent/adapters/anthropic_adapter.py's AnthropicProvider —
+Tests for agent/adapters/anthropic/provider.py's AnthropicProvider —
 see docs/learn/day-02/01-model-provider/01a-model-provider.md Steps 4
 and 5.
 
@@ -17,7 +17,7 @@ key itself was never written to any file in this repo.
 
 from unittest.mock import MagicMock, patch
 
-from agent.adapters.anthropic_adapter import AnthropicProvider
+from agent.adapters.anthropic.provider import AnthropicProvider
 from agent.model_provider import Message
 
 
@@ -32,6 +32,35 @@ def _fake_anthropic_response(
     response.usage.input_tokens = input_tokens
     response.usage.output_tokens = output_tokens
     return response
+
+
+def test_max_tokens_defaults_to_a_safe_value_not_the_raw_model_limit():
+    """Proves the category-C wiring, corrected after a live-call
+    regression: omitting max_tokens must NOT default straight to the
+    model's full real output limit (64_000 for claude-sonnet-4-5) -
+    that value is actually REJECTED by the Anthropic SDK for a
+    non-streaming chat() call (its own 10-minute-timeout safety rail,
+    discovered by running a real call). The default must stay at or
+    under the SDK's real non-streaming-safe ceiling instead."""
+    with patch("anthropic.Anthropic"):
+        provider = AnthropicProvider(
+            api_key="fake-key-for-mocked-test", model="claude-sonnet-4-5"
+        )
+        assert provider._max_tokens == 20_000
+        assert provider._max_tokens < 64_000
+
+
+def test_max_tokens_explicit_value_is_respected_not_overridden():
+    """An explicit max_tokens must be used as-is (e.g. to intentionally
+    cap cost on a short-answer call) - never silently replaced by the
+    model's full real limit."""
+    with patch("anthropic.Anthropic"):
+        provider = AnthropicProvider(
+            api_key="fake-key-for-mocked-test",
+            model="claude-sonnet-4-5",
+            max_tokens=100,
+        )
+        assert provider._max_tokens == 100
 
 
 def test_chat_translates_our_messages_into_anthropic_wire_format():

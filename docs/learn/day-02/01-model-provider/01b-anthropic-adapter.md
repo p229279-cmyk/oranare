@@ -1,10 +1,10 @@
-# Day 2, Component 1b — AnthropicProvider (agent/adapters/anthropic_adapter.py)
+# Day 2, Component 1b — AnthropicProvider (agent/adapters/anthropic/provider.py + quirks.py)
 
 This is the concrete adapter for `ModelProvider` — the one piece of code
 in the whole engine that is actually ALLOWED to know Anthropic's real
 API shape. See `01a-model-provider.md` first for the generic interface
 this implements; this file is specifically about the concrete class,
-kept in its own file (`agent/adapters/anthropic_adapter.py`), matching
+kept in its own package (`agent/adapters/anthropic/`), matching
 Hermes's real one-file-per-adapter convention. One deliberate
 difference: Hermes keeps these files flat directly in `agent/`, with no
 dedicated subfolder; we group ours under `agent/adapters/` instead,
@@ -65,10 +65,10 @@ exactly:
 ## Relationships
 
 ```
-Agent Loop  --calls-->  ModelProvider interface (model_provider.py)  --satisfied by-->  AnthropicProvider (anthropic_adapter.py)  --calls-->  Anthropic's real API over the network
+Agent Loop  --calls-->  ModelProvider interface (model_provider.py)  --satisfied by-->  AnthropicProvider (anthropic/provider.py)  --calls-->  Anthropic's real API over the network
 ```
 
-Nothing else in the engine imports `anthropic_adapter.py` directly
+Nothing else in the engine imports `agent.adapters.anthropic.provider` directly
 except whatever code is responsible for CONSTRUCTING a provider instance
 at startup (not yet built — that's a config/wiring concern for a later
 day). Everything downstream of construction (the Agent Loop, pipelines)
@@ -146,7 +146,8 @@ protocol-level bookkeeping the caller should never have to care about.*
 
 ## Coding
 
-Already built, in `agent/adapters/anthropic_adapter.py`, in this order:
+Already built, in `agent/adapters/anthropic/provider.py` (plus the model-specific
+lookup table in `agent/adapters/anthropic/quirks.py`), in this order:
 
 1. `__init__` — construct the real SDK client.
 2. `chat()` — the non-streaming path, built and live-verified first

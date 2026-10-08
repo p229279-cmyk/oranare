@@ -8,7 +8,7 @@ teaching walkthrough.
 This file holds ONLY the vendor-agnostic pieces: the shared data shapes,
 the ModelProvider interface itself, and the failure classifier. No
 vendor-specific code lives here — that's what
-agent/adapters/anthropic_adapter.py (and any future provider's own
+agent/adapters/anthropic/ (and any future provider's own
 file) is for. This split matches Hermes's own real pattern of one file
 per provider adapter — Hermes itself keeps these flat directly in
 agent/ (anthropic_adapter.py, bedrock_adapter.py, vertex_adapter.py,

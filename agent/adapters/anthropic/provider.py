@@ -1,30 +1,36 @@
 """
-agent/adapters/anthropic_adapter.py
+agent/adapters/anthropic/provider.py
 
 The ModelProvider adapter that actually talks to Anthropic's real API.
 This is the ONE place in the whole engine allowed to know Anthropic's
 specific wire format — see docs/engine/02-MODEL-PROVIDER.md.
 
-Kept as its own separate file, not folded into model_provider.py,
-matching Hermes's own real pattern of one file per provider adapter
-(anthropic_adapter.py, bedrock_adapter.py, vertex_adapter.py,
-gemini_native_adapter.py, codex_responses_adapter.py,
-azure_identity_adapter.py — never merged into one shared module).
+Lives inside its own dedicated package, agent/adapters/anthropic/, not
+a single flat file — matching Hermes's own real pattern of one file per
+provider adapter (anthropic_adapter.py, bedrock_adapter.py, etc. —
+never merged into one shared module), but going one step further: this
+package separates the REQUEST/RESPONSE logic (this file) from
+ANTHROPIC-SPECIFIC KNOWLEDGE like per-model token limits (quirks.py,
+alongside this file), so that knowledge has room to grow without this
+file ballooning the way Hermes's single 3,284-line anthropic_adapter.py
+has.
 
-One deliberate difference from Hermes: Hermes keeps these files flat
-directly in agent/, with no dedicated subfolder. We group ours under
-agent/adapters/ instead — a conscious choice anticipating more adapters
-being added over time, keeping agent/ itself from accumulating many
-individual provider files as the engine grows. A future second provider
-for this engine gets its own new file here too, e.g.
-agent/adapters/openai_adapter.py — zero changes to model_provider.py or
-to this file when that happens.
+Two deliberate differences from Hermes, both documented in
+docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md: (1) Hermes
+keeps its adapter files flat directly in agent/, we group ours under
+agent/adapters/; (2) Hermes keeps everything about one provider in ONE
+file, we split "how to call the API" (this file) from "facts about
+specific models" (quirks.py) inside a per-provider package. A future
+second provider for this engine gets its own new package here too,
+e.g. agent/adapters/openai/ — zero changes to model_provider.py or to
+this package when that happens.
 """
 
 from __future__ import annotations
 
 from typing import Iterator
 
+from agent.adapters.anthropic.quirks import get_default_max_tokens
 from agent.model_provider import Message, ModelResponse, StreamEvent
 
 
@@ -35,7 +41,25 @@ class AnthropicProvider:
     right methods is enough.
     """
 
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-5", max_tokens: int = 4096):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "claude-sonnet-4-5",
+        max_tokens: int | None = None,
+    ):
+        """
+        max_tokens: if omitted (None), uses a safe default that works
+        for BOTH chat() and stream() (agent/adapters/anthropic/quirks.py
+        get_default_max_tokens) rather than a single hardcoded number —
+        see docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md
+        category C for why this exists. This default is deliberately
+        NOT the model's full real output capacity: the Anthropic SDK
+        refuses a non-streaming chat() call above ~21_333 tokens (its
+        own 10-minute-timeout safety rail), so the default stays under
+        that ceiling. Pass an explicit larger value (up to
+        quirks.get_max_output_tokens(model)) only when you know you're
+        using stream(), which has no such restriction.
+        """
         # Imported here, not at module level, so model_provider.py's
         # generic pieces (and anything that imports from it) stay usable
         # even in a context where the anthropic package isn't installed.
@@ -43,7 +67,9 @@ class AnthropicProvider:
 
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
-        self._max_tokens = max_tokens
+        self._max_tokens = (
+            max_tokens if max_tokens is not None else get_default_max_tokens(model)
+        )
 
     def chat(
         self, messages: list[Message], system: str, tools: list[dict]

@@ -48,7 +48,7 @@ Two methods make up the whole public surface:
 
 Underneath, ONE concrete implementation today: `AnthropicProvider` — the
 adapter that actually knows how to speak Anthropic's specific API. It
-lives in its own file (`agent/adapters/anthropic_adapter.py`), separate
+lives in its own package (`agent/adapters/anthropic/`), separate
 from the generic interface (`agent/model_provider.py`) — matching
 Hermes's real pattern of one file per provider adapter. One deliberate
 difference: Hermes keeps these flat directly in `agent/`; we group ours
@@ -126,12 +126,13 @@ We build this in two files, one piece at a time:
    its own, before it's wired into anything that calls a real API. Also
    in `agent/model_provider.py`.
 4. `AnthropicProvider.chat()` — the simple, non-streaming path first.
-   Lives in its OWN file, `agent/adapters/anthropic_adapter.py`, not
-   `model_provider.py` — matching Hermes's real one-file-per-adapter
-   pattern (confirmed against Hermes's actual source:
-   `anthropic_adapter.py`, `bedrock_adapter.py`, `vertex_adapter.py`
-   are each their own file there too, though Hermes keeps them flat in
-   `agent/` rather than under a dedicated subfolder).
+   Lives in its OWN package, `agent/adapters/anthropic/` (provider.py
+   + quirks.py), not `model_provider.py` — inspired by Hermes's real
+   one-file-per-adapter pattern (confirmed against Hermes's actual
+   source: `anthropic_adapter.py`, `bedrock_adapter.py`,
+   `vertex_adapter.py` are each their own file there too, though Hermes
+   keeps them flat in `agent/`, as one file each, rather than under a
+   dedicated per-provider subfolder split into multiple files).
 5. `AnthropicProvider.stream()` — added once `chat()` is proven correct.
    Same file as step 4.
 
@@ -164,7 +165,7 @@ reasoning lives in
    a defensive guard for an impossible `stop_reason=None` case) plus one
    LIVE verification call against the real API (Haiku, cheap model) that
    confirmed the whole thing end to end. Lives in its own file,
-   `agent/adapters/anthropic_adapter.py` — see the Relationships section
-   above for why.
+   `agent/adapters/anthropic/provider.py` — see the Relationships
+   section above for why.
 
 

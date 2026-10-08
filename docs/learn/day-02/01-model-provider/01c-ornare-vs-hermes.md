@@ -16,19 +16,24 @@ real decision, not a guess.
 
 ## Part 1 — What we have done, in plain terms
 
-We built two files:
+We built:
 
 - `agent/model_provider.py` — the generic, vendor-agnostic vocabulary
   (`Message`, `ModelResponse`, `StreamEvent`), the `ModelProvider`
   interface, and a failure classifier (`classify_error`) that
   recognizes 6 kinds of failure.
-- `agent/adapters/anthropic_adapter.py` — the real adapter class,
+- `agent/adapters/anthropic/provider.py` — the real adapter class,
   `AnthropicProvider`, with two methods: `chat()` (ask once, get one
   full answer) and `stream()` (ask once, get the answer word by word).
+- `agent/adapters/anthropic/quirks.py` — a small table of real,
+  model-specific facts (currently: max output tokens per model we
+  actually use), added after this file's own category C analysis below
+  concluded we needed it (not present when this file was first written
+  — see the update note under category C).
 
-Both were tested (14 passing tests) and both were verified with a real,
-live call to the actual Anthropic API using a cheap model (Haiku) — not
-just mocked.
+Both were tested (21 passing tests as of the category-C update) and
+both were verified with real, live calls to the actual Anthropic API
+using a cheap model (Haiku) — not just mocked.
 
 **Total real logic: roughly 80-120 lines across both files.**
 
@@ -195,6 +200,33 @@ small, honest table of the handful of specific Claude models we
 ourselves will ever actually use, with their real max-output limits —
 not Hermes's full cross-vendor pattern-matching system, just enough to
 stop guessing a number and hope it's right.
+
+**UPDATE — this is now built.** `agent/adapters/anthropic/quirks.py`
+holds `ANTHROPIC_MAX_OUTPUT_TOKENS` (just our 2 real models,
+`claude-sonnet-4-5` and `claude-haiku-4-5`, each confirmed at 64,000 —
+cross-checked against Hermes's own real table rather than guessed) and
+`get_max_output_tokens()`. `AnthropicProvider.__init__` now uses this
+instead of a hardcoded `4096`.
+
+A real bug was caught in the process, discovered by a LIVE call, not
+assumed: using the model's raw 64,000-token limit as the DEFAULT broke
+every non-streaming `chat()` call outright. The Anthropic Python SDK
+itself refuses a non-streaming request if `max_tokens` is large enough
+that the call could plausibly run over 10 minutes (its own
+`_calculate_nonstreaming_timeout` check: `3600 * max_tokens / 128_000 >
+600` seconds, i.e. `max_tokens > ~21_333`). This is an SDK-level safety
+rail, not a model capability limit — the model itself can genuinely
+produce more, but only `stream()` is allowed to ask for it.
+
+Fixed with a second function, `get_default_max_tokens()`, which returns
+the smaller of the model's real limit and a safe non-streaming ceiling
+(20,000) — this is what `AnthropicProvider` actually defaults to. A
+caller who knowingly wants the model's full real capacity for a
+STREAMED answer can still pass `get_max_output_tokens(model)` as an
+explicit `max_tokens` value. Both the bug and the fix are covered by
+real tests in `tests/test_anthropic_quirks.py` and
+`tests/test_anthropic_adapter.py`, and the fix was re-verified with
+another live API call after the change.
 
 ---
 
@@ -476,7 +508,7 @@ a whole state object for one flag would be premature structure.
 |---|---|---|---|
 | **A. Auth subsystem** (OAuth, Keychain, Claude Code credential sharing) | Many different end-users, each with their own personal Claude subscription/login | **No** | We are ONE backend service with ONE Ornare-provisioned API key. There is no "which user's login" question — correctly identified: this is about personal Claude/Claude Code subscriptions, not a service account, which is exactly our situation. |
 | **B. Endpoint/vendor proxy detection** (Bedrock, Azure, MiniMax, Kimi, etc.) | Many users route through different compatible backends for cost/access reasons | **No** | We always talk to Anthropic directly. Build this only if Ornare ever deliberately decides to route through a different backend — a real, named decision, not a precaution. |
-| **C. Model-specific quirks** (thinking modes, max-output-by-model, effort levels) | Users freely switch between many different Claude model versions | **Yes, a small version** | We hardcode `max_tokens=4096` with no real basis. We should build a small, honest table of just OUR actual models' real limits — not Hermes's full cross-model pattern-matcher. |
+| **C. Model-specific quirks** (thinking modes, max-output-by-model, effort levels) | Users freely switch between many different Claude model versions | **Yes, a small version — DONE** | Built in `agent/adapters/anthropic/quirks.py`: a small table of just OUR actual models' real limits, not Hermes's full cross-model pattern-matcher. Caught and fixed a real bug in the process (see the UPDATE note under category C above) — the SDK rejects the model's raw limit for non-streaming calls. |
 | **D. Message-list sanitization** (role-merging, orphaned tool-block stripping) | Long-lived, actively-edited/compressed conversations drift into invalid shapes | **Not yet — but a real future need** | Our current scripted pipelines build short, fresh conversations every run — no drift possible yet. Becomes real the moment we build long WhatsApp conversations with history compression (Day 5+). Flag to revisit then, not now. |
 | **E. Retry/failover** (25-category classification, backoff, retry ceiling, context-overflow handling) | Needs fine-grained recovery across many providers with credential rotation | **Yes, definitely — and it's a real current gap** | We correctly classify SOME failures as retryable already, but nothing in our code actually retries. This is a production risk today, not a someday concern. |
 | **F. Model metadata/pricing** | Accurate cost/context display across many possible models | **Yes, a small static version** | `docs/standards/COST.md` already promises real cost tracking — needs a small table of OUR models' real prices, not Hermes's full dynamic, disk-cached, many-vendor system. |
