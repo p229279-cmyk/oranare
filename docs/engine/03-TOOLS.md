@@ -45,12 +45,12 @@ for both, only the dotted-line tools differ.
 
 ```mermaid
 sequenceDiagram
-    participant LOOP as Agent Loop
+    participant AGENTLOOP as Agent Loop
     participant REG as ToolRegistry
     participant TOOL as Tool handler
     participant GATE as ApprovalGate
 
-    LOOP->>REG: dispatch("send_bulk", args)
+    AGENTLOOP->>REG: dispatch("send_bulk", args)
     REG->>REG: look up ToolEntry
     alt tool.requires_approval
         REG->>GATE: request(summary, payload)
@@ -60,7 +60,7 @@ sequenceDiagram
     end
     REG->>TOOL: handler(args)
     TOOL-->>REG: ToolResult (success or is_error, never raises)
-    REG-->>LOOP: ToolResult
+    REG-->>AGENTLOOP: ToolResult
 ```
 
 ## Interface

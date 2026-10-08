@@ -36,20 +36,20 @@ turn, for the life of the conversation, or the cache boundary breaks.
 
 ```mermaid
 sequenceDiagram
-    participant LOOP as Agent Loop
+    participant AGENTLOOP as Agent Loop
     participant SP as SystemPrompt
     participant CACHE as Provider cache
 
-    Note over LOOP,CACHE: Turn 1
-    LOOP->>SP: render()
-    SP-->>LOOP: [STABLE][VOLATILE-t1]
-    LOOP->>CACHE: full prompt (cache MISS, cache WRITE)
+    Note over AGENTLOOP,CACHE: Turn 1
+    AGENTLOOP->>SP: render()
+    SP-->>AGENTLOOP: [STABLE][VOLATILE-t1]
+    AGENTLOOP->>CACHE: full prompt (cache MISS, cache WRITE)
 
-    Note over LOOP,CACHE: Turn 2
-    LOOP->>SP: render()
-    SP-->>LOOP: [STABLE][VOLATILE-t2]
+    Note over AGENTLOOP,CACHE: Turn 2
+    AGENTLOOP->>SP: render()
+    SP-->>AGENTLOOP: [STABLE][VOLATILE-t2]
     Note over SP: STABLE bytes identical to turn 1.<br/>Only VOLATILE changed.
-    LOOP->>CACHE: full prompt (STABLE prefix = cache HIT,<br/>only VOLATILE tail is new)
+    AGENTLOOP->>CACHE: full prompt (STABLE prefix = cache HIT,<br/>only VOLATILE tail is new)
 ```
 
 ## Interface

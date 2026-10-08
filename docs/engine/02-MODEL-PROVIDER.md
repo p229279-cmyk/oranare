@@ -47,19 +47,19 @@ loop.*
 
 ```mermaid
 sequenceDiagram
-    participant LOOP as Agent Loop
+    participant AGENTLOOP as Agent Loop
     participant ADAPT as AnthropicProvider
     participant API as Anthropic API
 
-    LOOP->>ADAPT: chat(messages, system, tools)
+    AGENTLOOP->>ADAPT: chat(messages, system, tools)
     ADAPT->>API: POST /messages
     API-->>ADAPT: 529 overloaded
     Note over ADAPT: classified as "overloaded"<br/>(docs/standards/RELIABILITY.md)
     ADAPT->>ADAPT: jittered backoff
     ADAPT->>API: POST /messages (retry)
     API-->>ADAPT: 200 + response
-    ADAPT-->>LOOP: ModelResponse
-    Note over LOOP: loop's vocabulary is only<br/>"got a response" or<br/>"genuinely failed" — never<br/>"failed once, retried, succeeded"
+    ADAPT-->>AGENTLOOP: ModelResponse
+    Note over AGENTLOOP: loop's vocabulary is only<br/>"got a response" or<br/>"genuinely failed" — never<br/>"failed once, retried, succeeded"
 ```
 
 ## Interface

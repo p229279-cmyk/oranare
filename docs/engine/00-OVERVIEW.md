@@ -187,28 +187,28 @@ one definitive answer.*
 ```mermaid
 sequenceDiagram
     participant CH as Channel
-    participant LOOP as Core Loop
+    participant AGENTLOOP as Core Loop
     participant SP as SystemPrompt
     participant MP as ModelProvider
     participant TR as ToolRegistry
     participant GATE as ApprovalGate
     participant SS as SessionStore
 
-    CH->>LOOP: inbound message
-    LOOP->>SP: render()
-    SP-->>LOOP: stable + volatile prompt
-    LOOP->>MP: chat(messages, system, tools)
-    MP-->>LOOP: tool_use requested
-    LOOP->>TR: dispatch(tool, args)
+    CH->>AGENTLOOP: inbound message
+    AGENTLOOP->>SP: render()
+    SP-->>AGENTLOOP: stable + volatile prompt
+    AGENTLOOP->>MP: chat(messages, system, tools)
+    MP-->>AGENTLOOP: tool_use requested
+    AGENTLOOP->>TR: dispatch(tool, args)
     alt tool is consequential
         TR->>GATE: request approval
         GATE-->>TR: accept / reject / edit
     end
-    TR-->>LOOP: tool_result
-    LOOP->>MP: chat(messages + result)
-    MP-->>LOOP: final answer
-    LOOP->>SS: append_message(...)
-    LOOP->>CH: outbound reply
+    TR-->>AGENTLOOP: tool_result
+    AGENTLOOP->>MP: chat(messages + result)
+    MP-->>AGENTLOOP: final answer
+    AGENTLOOP->>SS: append_message(...)
+    AGENTLOOP->>CH: outbound reply
 ```
 
 **Reading this:** every box in this diagram is a real interface specified
