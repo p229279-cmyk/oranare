@@ -19,7 +19,12 @@ Read in this order:
    problem, what's broken today, why now.
 2. [`docs/PRD.md`](docs/PRD.md) — product requirements: goals, non-goals,
    functional requirements, success metrics.
-3. [`docs/engine/00-OVERVIEW.md`](docs/engine/00-OVERVIEW.md) — **the
+3. [`docs/STACK.md`](docs/STACK.md) — the technology stack decision
+   record: Python for the agent core (matching Hermes's own real
+   choice), Node.js only for the WhatsApp bridge specifically (matching
+   Hermes's own real choice there too), no agent framework layered on
+   top.
+4. [`docs/engine/00-OVERVIEW.md`](docs/engine/00-OVERVIEW.md) — **the
    engine itself, start here**: the complete A-to-Z harness at four
    levels of zoom (System Context → Container → Component → Sequence),
    then one detailed file per subsystem in [`docs/engine/`](docs/engine/)
@@ -28,7 +33,7 @@ Read in this order:
    extensibility). Completely business-agnostic — this is "our harness,"
    independent of what any specific agent's job is. `docs/ENGINE.md` is
    now a short index into this directory.
-4. [`docs/standards/`](docs/standards/) — the engine's non-negotiable
+5. [`docs/standards/`](docs/standards/) — the engine's non-negotiable
    cross-cutting rulebook, one file per concern: `SECURITY.md`,
    `COST.md`, `RELIABILITY.md`, `OBSERVABILITY.md`,
    `CONTEXT_MANAGEMENT.md`, `PERMISSIONS.md` — each reasoned from
@@ -37,10 +42,10 @@ Read in this order:
    do structurally better (most notably `CONTEXT_MANAGEMENT.md`, which
    deliberately does NOT copy Hermes by default). `docs/ENGINEERING_STANDARDS.md`
    is now a short index into this directory.
-5. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
+6. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the product
    architecture: how THIS specific product (Agent A, Agent B, the
    franchise provisioning flow) is assembled on top of the engine.
-6. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
+7. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
    level detail: exact data shapes, schemas, error/testing conventions.
 
 **Important:** large parts of the PRD and spec are marked **[CONFIRM]** —
