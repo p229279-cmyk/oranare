@@ -98,14 +98,47 @@ class ModelProvider(Protocol):
         ...
 
 
+class ProviderInvariantError(Exception):
+    """Raised when a provider adapter detects a condition its own code
+    asserts should be impossible (e.g. a non-streaming response with
+    stop_reason=None) — see agent/adapters/anthropic/provider.py.
+
+    Deliberately its OWN exception type, not a bare ValueError: this
+    lets classify_error() tell "an internal invariant was violated" (==
+    never worth retrying, since retrying can't change an impossible
+    condition) apart from an ordinary ValueError raised by unrelated
+    code (which should still fall through to the generic "unknown,
+    retryable" bucket). A real bug was caught by this exact
+    distinction: an earlier version checked isinstance(error,
+    ValueError) directly, which misclassified a plain
+    ValueError("something we've never seen") as non-retryable too.
+    """
+
+
 FailureType = Literal[
     "rate_limit",
     "server_error",
+    "context_overflow",
     "auth",
     "bad_request",
     "timeout",
     "unknown",
 ]
+
+# Patterns that identify a context-overflow 400, verified against
+# Anthropic's own documented error shape (invalid_request_error whose
+# message contains this kind of phrasing). A small, scoped subset of
+# Hermes's real _CONTEXT_OVERFLOW_PATTERNS
+# (/home/ubuntu/.hermes/hermes-agent/agent/error_classifier.py) — Hermes
+# needs a longer list because it also talks to OpenAI-shaped, vLLM, and
+# other local-inference-server error text; we only ever talk to
+# Anthropic directly, so we only need the phrasing Anthropic itself
+# actually uses.
+_CONTEXT_OVERFLOW_PATTERNS = (
+    "prompt is too long",
+    "context length",
+    "context_length_exceeded",
+)
 
 
 @dataclass
@@ -141,6 +174,20 @@ def classify_error(error: Exception) -> ClassifiedError:
     if status_code == 401:
         return ClassifiedError("auth", should_retry=False, message=str(error))
     if status_code == 400:
+        # A 400 can mean several different real problems depending on the
+        # message text — we check for the one that needs a DIFFERENT fix
+        # (shrink the input, don't just retry unchanged) before falling
+        # through to the generic "malformed request" bucket. Verified
+        # against Anthropic's real documented error shape: context
+        # overflow surfaces as a 400 invalid_request_error whose message
+        # contains phrasing like "prompt is too long" or "context length"
+        # — not a distinct status code of its own, which is why text
+        # inspection is genuinely necessary here, not a shortcut.
+        error_text = str(error).lower()
+        if any(p in error_text for p in _CONTEXT_OVERFLOW_PATTERNS):
+            return ClassifiedError(
+                "context_overflow", should_retry=True, message=str(error)
+            )
         return ClassifiedError("bad_request", should_retry=False, message=str(error))
 
     # Timeouts/connection failures have NO status_code (nothing ever
@@ -157,5 +204,18 @@ def classify_error(error: Exception) -> ClassifiedError:
         or "APIConnectionError" in error_type_names
     ):
         return ClassifiedError("timeout", should_retry=True, message=str(error))
+
+    # An internal invariant violation (ProviderInvariantError) is never
+    # a real API/network failure — retrying it is pointless: nothing
+    # about retrying the same call makes an "impossible" condition any
+    # less impossible. Checked by a dedicated exception TYPE, not by
+    # guessing from a bare ValueError (a generic ValueError from
+    # unrelated code must still fall through to "unknown" below, so a
+    # type-name check — not an isinstance(error, ValueError) check —
+    # is the correct boundary here). Caught by a real test running
+    # slower than expected (a real sleep burned retrying this), not
+    # assumed in advance.
+    if "ProviderInvariantError" in error_type_names:
+        return ClassifiedError("bad_request", should_retry=False, message=str(error))
 
     return ClassifiedError("unknown", should_retry=True, message=str(error))

@@ -18,7 +18,7 @@ key itself was never written to any file in this repo.
 from unittest.mock import MagicMock, patch
 
 from agent.adapters.anthropic.provider import AnthropicProvider
-from agent.model_provider import Message
+from agent.model_provider import Message, ProviderInvariantError
 
 
 def _fake_anthropic_response(
@@ -126,8 +126,8 @@ def test_chat_raises_loudly_on_impossible_none_stop_reason():
                 system="be helpful",
                 tools=[],
             )
-            assert False, "expected ValueError to be raised"
-        except ValueError as e:
+            assert False, "expected ProviderInvariantError to be raised"
+        except ProviderInvariantError as e:
             assert "stop_reason=None" in str(e)
 
 
@@ -240,6 +240,6 @@ def test_stream_raises_loudly_on_impossible_none_stop_reason():
                     tools=[],
                 )
             )
-            assert False, "expected ValueError to be raised"
-        except ValueError as e:
+            assert False, "expected ProviderInvariantError to be raised"
+        except ProviderInvariantError as e:
             assert "stop_reason=None" in str(e)

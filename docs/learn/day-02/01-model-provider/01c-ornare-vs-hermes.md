@@ -411,6 +411,36 @@ production:
   network setup (corporate proxies, VPNs) could ever produce this —
   worth a deliberate yes/no decision rather than silently missing it.
 
+**UPDATE — the real-work part of this is now built.** `agent/retry.py`
+adds `jittered_backoff()` and `call_with_retry()` — a scoped version of
+Hermes's real `retry_utils.py` idea, without its Z.AI-specific code
+(category B, still out of scope). `model_provider.py` gained the
+`context_overflow` failure type, detected by message-text patterns
+(verified against Anthropic's real documented error shape) checked
+BEFORE the generic 400 bucket. `AnthropicProvider.chat()` is wrapped in
+`call_with_retry`; `stream()` is wrapped more carefully — only the
+connection-opening step is retried, never the iteration itself, so a
+caller never sees duplicated text once real content has started
+flowing.
+
+A real bug was caught in the process, same honesty standard as
+category C's bug: wiring retry into `chat()` made an EXISTING test
+(for the defensive `stop_reason=None` check) suddenly take 3.5 real
+seconds instead of milliseconds — because that check's bare
+`ValueError` fell through `classify_error()`'s default "unknown,
+retryable" bucket and got pointlessly retried 3 times. The first fix
+attempt (checking `isinstance(error, ValueError)` directly) was ALSO
+wrong, caught immediately by a DIFFERENT existing test — it
+misclassified every plain `ValueError` as non-retryable, not just the
+one specific internal-invariant case. The real fix: a dedicated
+`ProviderInvariantError` exception type, checked by name in
+`classify_error()`, leaving ordinary `ValueError`s from unrelated code
+untouched. Full walkthrough in
+`docs/learn/day-02/01-model-provider/01e-retry.md`'s "Deeper levels"
+section. `ssl_cert_verification` was deliberately NOT added — no
+concrete trigger for it exists yet in this project's real traffic
+pattern; noted as a future candidate, not built speculatively.
+
 ---
 
 ### F. Model metadata/pricing — not touched at all by us
@@ -522,7 +552,7 @@ a whole state object for one flag would be premature structure.
 | **B. Endpoint/vendor proxy detection** (Bedrock, Azure, MiniMax, Kimi, etc.) | Many users route through different compatible backends for cost/access reasons | **No** | We always talk to Anthropic directly. Build this only if Ornare ever deliberately decides to route through a different backend — a real, named decision, not a precaution. |
 | **C. Model-specific quirks** (thinking modes, max-output-by-model, effort levels) | Users freely switch between many different Claude model versions | **Yes, a small version — DONE** | Built in `agent/adapters/anthropic/quirks.py`: a small table of just OUR actual models' real limits, not Hermes's full cross-model pattern-matcher. Caught and fixed a real bug in the process (see the UPDATE note under category C above) — the SDK rejects the model's raw limit for non-streaming calls. |
 | **D. Message-list sanitization** (role-merging, orphaned tool-block stripping) | Long-lived, actively-edited/compressed conversations drift into invalid shapes | **Not yet — but a real future need** | Our current scripted pipelines build short, fresh conversations every run — no drift possible yet. Becomes real the moment we build long WhatsApp conversations with history compression (Day 5+). Flag to revisit then, not now. |
-| **E. Retry/failover** (25-category classification, backoff, retry ceiling, context-overflow handling) | Needs fine-grained recovery across many providers with credential rotation | **Yes, definitely — and it's a real current gap** | We correctly classify SOME failures as retryable already, but nothing in our code actually retries. This is a production risk today, not a someday concern. |
+| **E. Retry/failover** (25-category classification, backoff, retry ceiling, context-overflow handling) | Needs fine-grained recovery across many providers with credential rotation | **Yes, definitely — DONE** | Built in `agent/retry.py` (jittered backoff + bounded retry loop) and `model_provider.py` (new `context_overflow` failure type). Caught and fixed a real bug in the process (see the UPDATE note under category E above) — a defensive internal check needed its own dedicated exception type to avoid being pointlessly retried, without breaking a different test's correct behavior. |
 | **F. Model metadata/pricing** | Accurate cost/context display across many possible models | **Yes, a small static version** | `docs/standards/COST.md` already promises real cost tracking — needs a small table of OUR models' real prices, not Hermes's full dynamic, disk-cached, many-vendor system. |
 
 ---

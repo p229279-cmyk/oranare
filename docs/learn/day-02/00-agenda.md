@@ -45,7 +45,8 @@ ModelProvider  →  ToolRegistry  →  Agent Loop
 | 1b | `docs/learn/day-02/01-model-provider/01b-anthropic-adapter.md` | `agent/adapters/anthropic/provider.py` | `docs/engine/02-MODEL-PROVIDER.md` (concrete adapter) |
 | 1c | `docs/learn/day-02/01-model-provider/01c-ornare-vs-hermes.md` | n/a (comparison doc) | — |
 | 1d | `docs/learn/day-02/01-model-provider/01d-anthropic-quirks.md` | `agent/adapters/anthropic/quirks.py` | category C in 1c |
+| 1e | `docs/learn/day-02/01-model-provider/01e-retry.md` | `agent/retry.py` | category E in 1c |
 | 2 | `docs/learn/day-02/02-tool-registry.md` | `tools/registry.py` | `docs/engine/03-TOOLS.md` |
 | 3 | `docs/learn/day-02/03-agent-loop.md` | `agent/loop.py` | `docs/engine/01-AGENT-LOOP.md` |
 
-1, 1b, 1c, 1d done. Continuing with 2 (`ToolRegistry`) next.
+1, 1b, 1c, 1d, 1e done. Continuing with 2 (`ToolRegistry`) next.

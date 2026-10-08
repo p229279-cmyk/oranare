@@ -43,9 +43,26 @@ def test_auth_failure_is_not_retryable():
 
 
 def test_bad_request_is_not_retryable():
-    result = classify_error(FakeAPIError(400))
+    result = classify_error(FakeAPIError(400, message="missing required field 'model'"))
     assert result.failure_type == "bad_request"
     assert result.should_retry is False
+
+
+def test_context_overflow_is_retryable_despite_being_a_400():
+    """A context-overflow is a 400 just like a malformed request, but
+    needs a DIFFERENT classification (and a different real fix - shrink
+    the input - though that shrinking logic itself is not built yet).
+    Must be distinguished by message text, verified against Anthropic's
+    real documented error shape, before falling through to the generic
+    bad_request bucket."""
+    for message in (
+        "prompt is too long: 250000 tokens > 200000 maximum",
+        "messages: context length exceeded for this model",
+        "context_length_exceeded",
+    ):
+        result = classify_error(FakeAPIError(400, message=message))
+        assert result.failure_type == "context_overflow", message
+        assert result.should_retry is True
 
 
 def test_timeout_is_retryable():
@@ -92,3 +109,19 @@ def test_unrecognized_error_defaults_to_retryable_unknown():
     result = classify_error(ValueError("something we've never seen"))
     assert result.failure_type == "unknown"
     assert result.should_retry is True
+
+
+def test_provider_invariant_error_is_never_retried():
+    """Regression test for a real bug caught by a test running slower
+    than expected (a real sleep burned retrying this): an internal
+    invariant violation (ProviderInvariantError, raised when a
+    provider adapter detects a condition its own code asserts should
+    be impossible) must be non-retryable - retrying can't make an
+    impossible condition any less impossible. Must NOT be confused
+    with a generic ValueError from unrelated code, which should still
+    be "unknown, retryable" (see the test above)."""
+    from agent.model_provider import ProviderInvariantError
+
+    result = classify_error(ProviderInvariantError("stop_reason=None, impossible"))
+    assert result.failure_type == "bad_request"
+    assert result.should_retry is False
