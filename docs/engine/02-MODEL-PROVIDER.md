@@ -89,12 +89,18 @@ class ModelProvider(Protocol):
 
 ## Concrete adapters
 
-- `AnthropicProvider` — the only one implemented today.
+- `AnthropicProvider` — the only one implemented today. Lives in its own
+  file, `agent/anthropic_adapter.py`, separate from the generic interface
+  in `agent/model_provider.py` — this matches Hermes's own real pattern
+  of one file per provider adapter (`anthropic_adapter.py`,
+  `bedrock_adapter.py`, `vertex_adapter.py`, etc., never folded into a
+  shared module).
 - **No second provider is built speculatively.** Per the engine's own
   YAGNI discipline (`docs/engine/00-OVERVIEW.md`'s "test for touching the
   engine"), a second provider is added only when a real, named need
-  exists — at that point, it is purely additive: one new adapter class,
-  zero changes to this interface, the loop, or `AnthropicProvider`.
+  exists — at that point, it is purely additive: one new adapter FILE
+  (e.g. `agent/openai_adapter.py`), zero changes to this interface, the
+  loop, or `AnthropicProvider`.
 
 ## Cross-references
 

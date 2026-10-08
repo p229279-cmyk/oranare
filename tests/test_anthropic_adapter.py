@@ -18,7 +18,8 @@ contract).
 
 from unittest.mock import MagicMock, patch
 
-from agent.model_provider import AnthropicProvider, Message
+from agent.anthropic_adapter import AnthropicProvider
+from agent.model_provider import Message
 
 
 def _fake_anthropic_response(
