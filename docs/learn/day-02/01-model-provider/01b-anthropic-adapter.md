@@ -2,7 +2,7 @@
 
 This is the concrete adapter for `ModelProvider` — the one piece of code
 in the whole engine that is actually ALLOWED to know Anthropic's real
-API shape. See `01-model-provider.md` first for the generic interface
+API shape. See `01a-model-provider.md` first for the generic interface
 this implements; this file is specifically about the concrete class,
 kept in its own file (`agent/adapters/anthropic_adapter.py`), matching
 Hermes's real one-file-per-adapter convention. One deliberate
@@ -78,7 +78,7 @@ only ever holds a reference typed as `ModelProvider`, never as
 ## Mechanisms
 
 Two mechanisms, same two as described conceptually in
-`01-model-provider.md`, but this is where they're actually implemented
+`01a-model-provider.md`, but this is where they're actually implemented
 against a real vendor:
 
 1. **Translation, in both directions.**

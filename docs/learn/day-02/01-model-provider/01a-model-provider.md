@@ -139,7 +139,7 @@ We build this in two files, one piece at a time:
 
 Short summary of each step's result — full function-by-function
 reasoning lives in
-[`01-model-provider-code-explaination.md`](01-model-provider-code-explaination.md).
+[`01a-model-provider-code-explaination.md`](01a-model-provider-code-explaination.md).
 
 1. **Shared data shapes** (`Message`, `ModelResponse`, `StreamEvent`) —
    the vendor-agnostic vocabulary every provider speaks. No Anthropic

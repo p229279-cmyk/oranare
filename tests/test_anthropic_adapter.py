@@ -2,7 +2,8 @@
 tests/test_anthropic_adapter.py
 
 Tests for agent/adapters/anthropic_adapter.py's AnthropicProvider —
-see docs/learn/day-02/01-model-provider.md Steps 4 and 5.
+see docs/learn/day-02/01-model-provider/01a-model-provider.md Steps 4
+and 5.
 
 Honesty note, per the project's standing testing standard: most of these
 tests use a mocked SDK client, not a real network call, to prove the

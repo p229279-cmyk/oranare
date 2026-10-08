@@ -2,7 +2,8 @@
 tests/test_model_provider.py
 
 Tests for agent/model_provider.py's classify_error() — see
-docs/learn/day-02/01-model-provider.md Step 3 for the reasoning.
+docs/learn/day-02/01-model-provider/01a-model-provider.md Step 3 for
+the reasoning.
 
 These tests use fabricated fake exceptions, not a real API call —
 proving the classification logic is correct needs no network, no API

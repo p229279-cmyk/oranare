@@ -2,7 +2,8 @@
 agent/model_provider.py
 
 See docs/engine/02-MODEL-PROVIDER.md for the full spec, and
-docs/learn/day-02/01-model-provider.md for the teaching walkthrough.
+docs/learn/day-02/01-model-provider/01a-model-provider.md for the
+teaching walkthrough.
 
 This file holds ONLY the vendor-agnostic pieces: the shared data shapes,
 the ModelProvider interface itself, and the failure classifier. No
@@ -124,7 +125,8 @@ class ClassifiedError:
 def classify_error(error: Exception) -> ClassifiedError:
     """Classify a raw exception from a model provider's SDK into a
     ClassifiedError, per the failure table in
-    docs/learn/day-02/01-model-provider.md's "Deeper levels" section.
+    docs/learn/day-02/01-model-provider/01a-model-provider.md's "Deeper
+    levels" section.
 
     Built and tested standalone (see tests/) — no live API call needed
     to prove this logic is correct, per the project's standing honesty
