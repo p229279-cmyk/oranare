@@ -47,6 +47,10 @@ Read in this order:
    franchise provisioning flow) is assembled on top of the engine.
 7. [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) — implementation-
    level detail: exact data shapes, schemas, error/testing conventions.
+8. [`TODO.md`](TODO.md) — **standing decision memory, read this before
+   resuming work after any gap.** Records exactly what's deferred on
+   purpose (and the real trigger condition to build it), what's done,
+   and the process rules every future component must follow.
 
 **Important:** large parts of the PRD and spec are marked **[CONFIRM]** —
 built from inferred requirements (handwritten planning notes + a verbal
