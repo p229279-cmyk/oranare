@@ -163,8 +163,5 @@ commit history for the live-verification details.
 
 ## Code understanding
 
-*(Not written yet — per instruction, the detailed function-by-function
-explanation for this file goes into
-[`01-model-provider-code-explaination.md`](01-model-provider-code-explaination.md)
-separately, shown for approval before it's added, same process as every
-other component.)*
+Full function-by-function explanation lives in
+[`01b-anthropic-adapter-code-explaination.md`](01b-anthropic-adapter-code-explaination.md).
