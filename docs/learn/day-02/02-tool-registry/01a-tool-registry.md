@@ -60,3 +60,29 @@ most — omitting `blast_radius` raises `TypeError`, proving the
 Step 2: the `ToolRegistry` class itself, starting with `register()`
 only — mirroring how `AnthropicProvider` was built one method at a
 time (`chat()` before `stream()`).
+
+## A real question worth recording: why `blast_radius` when Hermes has no such field?
+
+Hermes controls tool danger completely differently — not by tiering
+tools at registration, but by pattern-matching the CONTENT of a
+specific call (`tools/approval.py`'s `HARDLINE_PATTERNS`,
+`DANGEROUS_PATTERNS`, the Tirith scanner). That mechanism fits
+Hermes's real shape: ONE general-purpose tool (`terminal`) whose
+danger depends on arbitrary command text, not on which tool it is.
+
+Our shape is the opposite: many narrow, specific, purpose-built tools
+per agent, where the danger is a property of WHICH tool it is, known
+and fixed the moment it's written — not something that needs parsing
+a call's content. `blast_radius` fits THIS shape, and — importantly,
+given this project's goal of becoming one general-purpose harness
+across 100+ future agent types across many industries, not just
+Oranare's 2 — it scales cleanly: a dental agent's "cancel all
+appointments" tool and a fraud-review agent's "freeze an account"
+tool both just get tagged `consequential_bulk`, same mechanism, zero
+new code per agent.
+
+The two mechanisms are not competing choices — see `TODO.md`'s
+"Content-based danger detection for tools" entry for the real,
+deferred trigger condition for when a FUTURE tool (e.g. a `run_sql`
+tool) would need BOTH: a fixed `blast_radius` tier AND a
+Hermes-style content-pattern check layered on top.

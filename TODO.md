@@ -49,6 +49,67 @@ it, would be premature — there's no consumer for the data yet.
 cost tracking is actually implemented in code. Build F ALONGSIDE that
 work, not before it, not separately.
 
+### Content-based danger detection for tools (NOT built)
+
+**What it would do:** Hermes's real mechanism
+(`tools/approval.py` — `HARDLINE_PATTERNS`, `DANGEROUS_PATTERNS`, the
+Tirith security scanner, smart-approval via an auxiliary LLM) decides
+whether ONE SPECIFIC CALL to a tool is dangerous by pattern-matching
+the actual CONTENT of its arguments (e.g. is this exact shell command
+`rm -rf /tmp/foo` or `rm -rf /`). This is a fundamentally different
+question from `blast_radius` (see below), and genuinely useful — but
+only for a tool whose risk depends on WHAT'S INSIDE the call, not on
+WHICH tool it is.
+
+**Why it's not built:** every tool across both of today's agents
+(Pulse, Rapid, Forge, Scout, Sentry via `oranare-harness`) is a
+specific, narrow, named action (e.g. "send one approved quote").
+`blast_radius` (identity-based tiering, already built —
+`tools/registry.py`) is sufficient for every tool like this: the tier
+is fixed and known the moment the tool is written, no content parsing
+needed. We have no tool today whose danger varies call-by-call based
+on its own argument content.
+
+**The real trigger to build it:** the moment ANY future tool — in
+Oranare or any of the other 100 planned agent types (see "Standing
+architectural principle" below) — is genuinely open-ended, i.e. its
+real-world danger depends on what's INSIDE a specific call, not on
+which tool was invoked. Concrete future examples that would trigger
+this: a `run_sql` tool for a Data Analytics Agent (`SELECT` vs.
+`DROP TABLE` are wildly different risk, same tool), a
+`run_shell_command` tool for a DevOps Incident Agent, or an
+`execute_workflow_script` tool. When that tool is built, give IT
+specifically a Hermes-style pattern-matching layer on top of its own
+fixed `blast_radius` tier — not a general subsystem built ahead of
+any real consumer.
+
+---
+
+## Standing architectural principle — build for 100 agent types, not 2
+
+This harness's real long-term goal is ONE general-purpose system,
+reused across a wide range of future agent types across many
+industries (real estate, dental, legal, finance, HR, e-commerce,
+logistics, and more) — NOT a system custom-built only for Oranare's 2
+current agents. Every architectural decision in this repo must be
+checked against that future scale and diversity, not just today's
+narrow case.
+
+**The concrete rule this produces, when deciding whether to copy a
+Hermes mechanism or build our own:** adopt Hermes's real mechanism
+where OUR tool/agent shape genuinely MATCHES Hermes's own shape
+(Hermes: one general-purpose tool whose danger depends on arbitrary
+content — e.g. a shell command's text). Build our own, simpler
+mechanism where our shape is genuinely different (us: many narrow,
+specific, purpose-built tools per agent, whose danger is a property of
+WHICH tool it is, fixed at registration, not what's inside one call).
+`blast_radius` (identity-based tiering, built) and Hermes's real
+content-based pattern matching (not yet needed, deferred above) are
+not competing choices — they are two different tools for two different
+real problems, and a future tool can need BOTH layered together (a
+fixed `blast_radius` tier, plus a content-based check on top, for the
+rare tool whose risk is genuinely call-by-call).
+
 ---
 
 ## Done — built, tested, live-verified
