@@ -38,6 +38,85 @@ still holds every individual tool. Toolsets exist so a profile/session
 can say "give me the `browser` bundle" instead of listing 15 tool names
 by hand.
 
+## The flow — tying this to what you already know: "function creation" vs "function calling"
+
+You already know the two real phases every tool-calling system has:
+**creating** the function (defining it, once) and **calling** it
+(the model deciding to use it, at runtime, possibly many times). The 4
+layers above map directly onto those two phases — layers 1-3 ALL
+happen during "creation" (at startup, before the model is ever talked
+to), and the "two moments" section happens during "calling" (while a
+real conversation is running). Nothing in layers 1-3 happens more than
+once per process; the calling-phase steps happen over and over, once
+per model turn.
+
+### Phase A (creation, happens ONCE, at startup) — layers 1, 2, 3, 4 in sequence
+
+```mermaid
+flowchart TB
+    START(["Hermes process starts"])
+    SCAN["Scan every file in tools/<br/>(cheap AST check: does this<br/>file call registry.register?)"]
+    FILTER{"Does this file<br/>call register()?"}
+    SKIP["Skip this file —<br/>not a tool module"]
+    IMPORT["Import the file for real<br/>(this RUNS the file's top-level code)"]
+    REGCALL["The file's own<br/>registry.register(name, schema, handler, ...)<br/>line executes"]
+    STORE["ToolRegistry stores one<br/>ToolEntry: name -> schema + handler + check_fn"]
+    BUNDLE["toolsets.py groups tool NAMES<br/>into named bundles<br/>(e.g. 'browser' -> [tool_a, tool_b, ...])"]
+    READY(["Registry + toolsets are now<br/>fully populated, process keeps running"])
+
+    START --> SCAN --> FILTER
+    FILTER -- "no" --> SKIP
+    FILTER -- "yes" --> IMPORT --> REGCALL --> STORE --> BUNDLE --> READY
+
+    style START fill:#4a8a5a,stroke:#4a8a5a,color:#ffffff
+    style READY fill:#4a8a5a,stroke:#4a8a5a,color:#ffffff
+    style SKIP fill:#8a4a4a,stroke:#8a4a4a,color:#ffffff
+```
+
+**This whole diagram is "function creation," stretched across all 4
+layers.** By the time it finishes, nothing has talked to a model yet —
+the registry is just a populated dictionary, sitting there, waiting.
+
+### Phase B (calling, happens EVERY model turn, repeatedly, while the process runs)
+
+```mermaid
+sequenceDiagram
+    participant LOOP as Agent Loop
+    participant REG as ToolRegistry
+    participant MODEL as The Model (API)
+    participant HANDLER as Tool's handler function
+
+    Note over LOOP,REG: --- Moment 1: before every model call ---
+    LOOP->>REG: get_definitions(["browser", "terminal", ...])
+    REG->>REG: for each name: run check_fn() (cached ~30s)<br/>drop any tool that's unavailable right now
+    REG-->>LOOP: [{"type":"function","function":{schema}}, ...]
+    LOOP->>MODEL: send messages + this tool schema list
+    MODEL-->>LOOP: "I want to call tool X with args {...}"
+
+    Note over LOOP,HANDLER: --- Moment 2: only if the model asked to call a tool ---
+    LOOP->>REG: dispatch("X", {args})
+    REG->>REG: look up ToolEntry by name "X"
+    REG->>HANDLER: entry.handler(args)
+    HANDLER-->>REG: real result (or raises an exception)
+    REG->>REG: normalize result to a string,<br/>or catch the exception -> {"error": "..."}
+    REG-->>LOOP: the tool's result
+    LOOP->>MODEL: send the result back as a new message
+    Note over LOOP,MODEL: loop continues - model may call<br/>another tool, or give a final answer
+```
+
+**This is "function calling," and it's a LOOP, not a one-time event.**
+Moment 1 happens before every single request to the model (the model
+needs to be told, EVERY time, what tools exist right now — this is why
+`check_fn` results are cached for ~30 seconds instead of recomputed on
+every single call, which would be wasteful). Moment 2 only happens
+when the model's response says "call this tool" — on a turn where the
+model just answers in plain text, moment 2 never happens at all.
+
+**The one sentence that ties the whole file together:** creation
+(layers 1-4) builds ONE registry, ONCE; calling (the two moments)
+reads from that SAME registry, MANY times, once per model turn, for
+the entire lifetime of the process.
+
 ## The two moments the registry actually gets used
 
 - **`get_definitions(tool_names)`** — called once per model request.
