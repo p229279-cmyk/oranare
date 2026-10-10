@@ -510,38 +510,46 @@ model gives a final answer or the run ends.
 
 ```mermaid
 flowchart TB
-    subgraph SETUP["Setup time - happens ONCE at startup"]
+    subgraph SETUP["Setup time - once, at startup"]
         A1["Write the add function"]
         A2["Define the schema"]
         A3["Create the handler"]
         A4["Register the tool"]
         A5["Harness discovers and<br/>imports the tool module"]
         A6["Registry stores<br/>schema plus handler"]
-        A1 --> A2 --> A3 --> A4
-        A5 --> A4
-        A4 --> A6
     end
 
-    subgraph RUNTIME["Runtime - happens repeatedly during conversations"]
+    subgraph RUNTIME["Runtime - repeatedly, per conversation turn"]
         B1["Agent loop selects<br/>available tools"]
         B2["Schema is sent to the LLM"]
         B3["LLM response"]
-        B4{"Tool call for add"}
+        B4["Tool call for add"]
         B5["Dispatch by tool name"]
         B6["Execute handler"]
         B7["Return result 12"]
         B8["Send tool result to LLM"]
-        B9{"Another tool call"}
+        B9["Another tool call"]
         B10["Final response to user"]
-
-        B1 --> B2 --> B3 --> B4
-        B4 -->|Yes| B5 --> B6 --> B7 --> B8 --> B9
-        B9 -->|Yes| B5
-        B9 -->|No| B10
-        B4 -->|No, direct answer| B10
     end
 
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A5 --> A4
+    A4 --> A6
     A6 --> B1
+
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
+    B4 --> B5
+    B5 --> B6
+    B6 --> B7
+    B7 --> B8
+    B8 --> B9
+    B9 --> B5
+    B9 --> B10
+    B4 --> B10
 
     style SETUP fill:#2d3b4a,stroke:#5a7a9a,color:#ffffff
     style RUNTIME fill:#3b2d4a,stroke:#9a5a7a,color:#ffffff
