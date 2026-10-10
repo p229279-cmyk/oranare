@@ -154,6 +154,40 @@ approval threshold rather than one baked in at registration time.
 
 ---
 
+## Known, tested limitations of `@dataclass(slots=True)` on `Tool`
+
+Two real limitations verified directly (not assumed) when the
+`tools/registry.py` `Tool` class was switched to
+`@dataclass(slots=True)`. Neither is a problem TODAY, but both are
+worth remembering before they cause a confusing bug later.
+
+1. **No weak references.** `weakref.ref(some_tool_instance)` raises
+   `TypeError` — confirmed directly. A "weak reference" (Python's
+   `weakref` module) is a reference to an object that does NOT keep
+   it alive; it's used for caches that should automatically forget an
+   entry once nothing else needs the real object anymore (e.g. the
+   `WeakKeyDictionary` caches used inside the Anthropic SDK, OpenAI
+   SDK, and Pydantic — all found via search, all in third-party code,
+   none in ours). Checked our own `tools/`, `agent/`, `tests/` — zero
+   weakref usage anywhere. **Real trigger to revisit:** the first time
+   we build a cache that needs to hold `Tool` instances by weak
+   reference (e.g. a very-large-scale tool cache that must not leak
+   memory) — add `"__weakref__"` to a custom `__slots__` tuple then,
+   not speculatively now.
+
+2. **A subclass of `Tool` silently LOSES the slots protection unless
+   it ALSO declares `@dataclass(slots=True)` on itself.** Confirmed
+   directly: `class MoreSpecificTool(Tool): ...` without its own
+   `slots=True` reintroduces a `__dict__`, silently allowing arbitrary
+   extra attributes again — exactly the behavior `slots=True` exists
+   to prevent. **This is the one to actually watch for:** if `Tool`
+   is ever subclassed (e.g. a future `BulkTool` with extra fields),
+   the subclass MUST repeat `@dataclass(slots=True)` explicitly, or
+   the whole point of using slots quietly breaks with no error or
+   warning anywhere.
+
+---
+
 ## Standing architectural principle — build for 100 agent types, not 2
 
 This harness's real long-term goal is ONE general-purpose system,
