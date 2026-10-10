@@ -510,11 +510,11 @@ model gives a final answer or the run ends.
 
 ```mermaid
 flowchart TB
-    subgraph SETUP["Setup time - happens ONCE, at startup"]
-        A1["Write add(a, b)"]
+    subgraph SETUP["Setup time - happens ONCE at startup"]
+        A1["Write the add function"]
         A2["Define the schema"]
         A3["Create the handler"]
-        A4["Register the tool<br/>registry.register(...)"]
+        A4["Register the tool"]
         A5["Harness discovers and<br/>imports the tool module"]
         A6["Registry stores<br/>schema plus handler"]
         A1 --> A2 --> A3 --> A4
@@ -522,16 +522,16 @@ flowchart TB
         A4 --> A6
     end
 
-    subgraph RUNTIME["Runtime - happens REPEATEDLY, during conversations"]
+    subgraph RUNTIME["Runtime - happens repeatedly during conversations"]
         B1["Agent loop selects<br/>available tools"]
         B2["Schema is sent to the LLM"]
         B3["LLM response"]
-        B4{"Tool call: add?"}
+        B4{"Tool call for add"}
         B5["Dispatch by tool name"]
         B6["Execute handler"]
-        B7["Return result: 12"]
+        B7["Return result 12"]
         B8["Send tool result to LLM"]
-        B9{"Another tool call?"}
+        B9{"Another tool call"}
         B10["Final response to user"]
 
         B1 --> B2 --> B3 --> B4
