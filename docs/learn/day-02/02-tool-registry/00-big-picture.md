@@ -63,6 +63,145 @@ without having to register/deregister tools dynamically.
 
 ---
 
+## How OTHER real harnesses do this — the same problem, two very different shapes
+
+Hermes solves "how does the model know what tools exist, and how does
+a tool call actually run" with a GLOBAL SINGLETON REGISTRY. That's one
+real design — but not the only one. Two other real, production
+harnesses were installed and their actual source code read (not
+described secondhand) to see how differently this same problem can be
+solved: **OpenAI's own Agents SDK** (`pip install openai-agents`,
+package `agents`) and **LangChain's `deepagents`** (built on
+`langchain_core.tools.BaseTool`).
+
+### OpenAI Agents SDK — NO global registry at all; tools live on the agent object itself
+
+**Real source, read directly:**
+`agents/tool.py` (2,980 lines) and `agents/agent.py`, from the
+installed `openai-agents` package.
+
+```python
+@dataclass
+class Agent(AgentBase, Generic[TContext]):
+    name: str
+    tools: list[Tool] = field(default_factory=list)
+    mcp_servers: list[MCPServer] = field(default_factory=list)
+
+    async def get_all_tools(self, run_context):
+        """All agent tools, including MCP tools and function tools."""
+        tools = snapshot_agent_tools(self)
+        mcp_tools = await self.get_mcp_tools(run_context)
+        # ... filters by is_enabled, dedupes, returns the final list
+```
+
+**The real shape:** a tool here is a `FunctionTool` dataclass — `name`,
+`description`, `params_json_schema`, and a callable (`on_invoke_tool`)
+— built either by hand or via the `@function_tool` decorator, which
+auto-generates the JSON schema straight from the Python function's own
+type hints and docstring. There is **no central place these tools get
+registered into.** Instead, each individual `Agent` object simply
+HOLDS its own `tools: list[Tool]` directly as a field. "What tools does
+this agent have" is answered by just reading `agent.tools` — there's
+no lookup-by-name step at all for the basic case.
+
+**The one mechanism that plays a SIMILAR role to Hermes's `check_fn`:**
+`FunctionTool.is_enabled` — either a plain `bool`, or a callable that
+takes the run context and the agent and decides dynamically. Read
+`get_all_tools()` above: it calls this for every tool on every run and
+filters the list down to only the enabled ones before returning it to
+the model. Same IDEA as `check_fn` (a tool can exist but be
+conditionally hidden), but the mechanism lives on the tool object
+itself, not inside a separate global dictionary that has to be
+consulted.
+
+**The real tradeoff this implies:** Hermes's registry answers "what
+tools exist, globally, across the whole process" with one shared,
+queryable object — useful when MANY different sessions/profiles need
+to pick different SUBSETS of a large shared pool of built-in tools
+(exactly Hermes's real situation: ~100+ built-in tool files, bundled
+into toolsets, enabled per-profile). The Agents SDK's per-agent `tools`
+list fits a different real shape: each `Agent` is typically built
+fresh, in code, with an explicit, usually SMALL list of tools chosen
+right there at construction time — there's no large shared pool to
+pick subsets FROM in the first place, so a central registry would be
+solving a problem that doesn't really exist in that usage pattern.
+
+### LangChain / deepagents — tools are first-class OBJECTS (`BaseTool`), not dict entries
+
+**Real source, read directly:**
+`langchain_core/tools/base.py` and `deepagents/graph.py`, from the
+installed `deepagents` package (built on top of `langchain.agents`).
+
+```python
+class BaseTool(RunnableSerializable[...]):
+    name: str
+    description: str
+    args_schema: Type[BaseModel] | None = Field(...)
+
+    def invoke(self, input, ...): ...
+    def run(self, ...): ...
+    def _run(self, *args, **kwargs): ...  # subclasses implement this
+```
+
+**The real shape:** `BaseTool` is a genuine CLASS, not a schema dict
+plus a separately-tracked handler function — the schema
+(`args_schema`, a real Pydantic model, not a hand-written JSON dict)
+and the execution logic (`_run`) live on the SAME object, as methods.
+The `@tool` decorator (`langchain_core.tools.tool`) is the equivalent
+of Hermes's "write a schema dict + a handler function" step — it
+builds a `BaseTool` instance out of a plain Python function
+automatically, inferring the schema from type hints exactly like the
+Agents SDK's `@function_tool` does.
+
+**How `deepagents` actually "registers" tools, confirmed by reading
+`graph.py` directly:** `create_deep_agent(tools=[...])` — you just pass
+a plain Python LIST of `BaseTool` objects (or plain functions, which
+get auto-wrapped) straight into the agent constructor. No discovery
+step, no scanning a directory, no central dict anyone queries by name.
+Deepagents adds its OWN tools (a planning tool, filesystem tools,
+sub-agent delegation) by literally concatenating them onto this same
+list before building the underlying LangGraph graph.
+
+**The real tradeoff this implies:** Pydantic models for `args_schema`
+buy real, automatic input VALIDATION (type-checking, required fields)
+essentially for free, as a side effect of using a real class and a
+real schema library — something Hermes's raw-dict schemas don't get
+automatically; Hermes validates each tool's own arguments by hand,
+inside each handler function. The cost on LangChain's side is a
+genuine dependency on Pydantic and LangChain's own class hierarchy
+being present at all — Hermes's dict-based `ToolEntry` has zero
+framework dependency, which matches AGENTS.md's own stated philosophy
+("no agent framework," something this project's own `docs/STACK.md`
+deliberately mirrors for the same reason).
+
+### The real underlying pattern, now visible across all three
+
+Every single one of these three real, production harnesses reduces a
+"tool" down to the exact same two irreducible pieces, no matter how
+differently they're PACKAGED:
+
+| | Hermes | OpenAI Agents SDK | LangChain / deepagents |
+|---|---|---|---|
+| **The "what it is" fact** | a plain JSON `schema` dict | `FunctionTool.params_json_schema` (dict) | `BaseTool.args_schema` (a real Pydantic class) |
+| **The "how to run it" fact** | a separately-tracked `handler` function | `on_invoke_tool` (a method ON the same object) | `_run()` (a method ON the same object) |
+| **Where both live together** | `ToolEntry` — one dict ENTRY, schema+handler stored as separate fields | `FunctionTool` — one dataclass, schema+handler as fields | `BaseTool` — one real CLASS, schema+execution as inherited methods |
+| **"is this available right now?"** | `check_fn` — a separate callable, consulted by the registry | `is_enabled` — a field ON the tool itself | not a first-class concept at this layer — handled by which tools you choose to pass in |
+| **Where the list of "what's offered" lives** | the registry (queried by name, separate from any one agent) | `agent.tools` (a plain list, owned by that ONE agent) | the list passed into `create_agent(tools=[...])` (owned by that ONE graph) |
+
+**The one real, portable lesson, independent of which shape a given
+harness picked:** every tool, in every one of these systems, is
+reducible to exactly two facts — "what it looks like to the model"
+(a schema) and "what actually happens when it's called" (a function).
+Everything else — a global registry vs. a per-agent list,
+dict-based vs. class-based, `check_fn` vs. `is_enabled` — is a
+packaging decision layered on top of that same fixed pair, chosen to
+fit each project's own real usage shape (a large shared pool of
+built-in tools needing per-profile subsetting, vs. a small
+explicitly-constructed list per agent, vs. a framework that wants
+automatic schema validation for free).
+
+---
+
 ## Next
 
 This is the conceptual skeleton only — nothing has been built yet for
@@ -77,3 +216,7 @@ designing our own `ToolRegistry`:
 - The approval/blast-radius layer (`tools/approval.py`) — a separate,
   much larger concern layered on top of dispatch, not part of the core
   registry itself.
+- Which real shape (global registry, per-agent list, or class-based
+  tool objects) actually fits THIS project's own real usage pattern —
+  informed by the cross-harness comparison above, not decided before
+  seeing it.
