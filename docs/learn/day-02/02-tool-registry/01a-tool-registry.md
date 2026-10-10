@@ -70,6 +70,11 @@ set to a real callable, the enforcement test that omitting
 `blast_radius` raises `TypeError`, and the two new slots regression
 tests described above.
 
+## Code understanding
+
+Full function-by-function explanation lives in
+[`01a-tool-registry-code-explaination.md`](01a-tool-registry-code-explaination.md).
+
 ## Next
 
 Step 2: the `ToolRegistry` class itself, starting with `register()`
