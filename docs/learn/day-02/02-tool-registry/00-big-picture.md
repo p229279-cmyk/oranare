@@ -57,16 +57,16 @@ flowchart TB
     START(["Hermes process starts"])
     SCAN["Scan every file in tools/<br/>(cheap AST check: does this<br/>file call registry.register?)"]
     FILTER{"Does this file<br/>call register()?"}
-    SKIP["Skip this file —<br/>not a tool module"]
+    SKIP["Skip this file -<br/>not a tool module"]
     IMPORT["Import the file for real<br/>(this RUNS the file's top-level code)"]
-    REGCALL["The file's own<br/>registry.register(name, schema, handler, ...)<br/>line executes"]
-    STORE["ToolRegistry stores one<br/>ToolEntry: name -> schema + handler + check_fn"]
-    BUNDLE["toolsets.py groups tool NAMES<br/>into named bundles<br/>(e.g. 'browser' -> [tool_a, tool_b, ...])"]
-    READY(["Registry + toolsets are now<br/>fully populated, process keeps running"])
+    REGCALL["The file's own<br/>registry.register(name, schema, handler)<br/>line executes"]
+    STORE["ToolRegistry stores one<br/>ToolEntry: schema plus handler plus check_fn"]
+    BUNDLE["toolsets.py groups tool names<br/>into named bundles<br/>(e.g. browser bundle holds several tools)"]
+    READY(["Registry and toolsets are now<br/>fully populated, process keeps running"])
 
     START --> SCAN --> FILTER
-    FILTER -- "no" --> SKIP
-    FILTER -- "yes" --> IMPORT --> REGCALL --> STORE --> BUNDLE --> READY
+    FILTER -->|no| SKIP
+    FILTER -->|yes| IMPORT --> REGCALL --> STORE --> BUNDLE --> READY
 
     style START fill:#4a8a5a,stroke:#4a8a5a,color:#ffffff
     style READY fill:#4a8a5a,stroke:#4a8a5a,color:#ffffff
@@ -81,27 +81,27 @@ the registry is just a populated dictionary, sitting there, waiting.
 
 ```mermaid
 sequenceDiagram
-    participant LOOP as Agent Loop
+    participant AGENTLOOP as Agent Loop
     participant REG as ToolRegistry
     participant MODEL as The Model (API)
     participant HANDLER as Tool's handler function
 
-    Note over LOOP,REG: --- Moment 1: before every model call ---
-    LOOP->>REG: get_definitions(["browser", "terminal", ...])
-    REG->>REG: for each name: run check_fn() (cached ~30s)<br/>drop any tool that's unavailable right now
-    REG-->>LOOP: [{"type":"function","function":{schema}}, ...]
-    LOOP->>MODEL: send messages + this tool schema list
-    MODEL-->>LOOP: "I want to call tool X with args {...}"
+    Note over AGENTLOOP,REG: Moment 1 - before every model call
+    AGENTLOOP->>REG: get_definitions(list of tool names)
+    REG->>REG: for each name, run check_fn (cached ~30s),<br/>drop any tool that's unavailable right now
+    REG-->>AGENTLOOP: schema list to send to the model
+    AGENTLOOP->>MODEL: send messages plus this tool schema list
+    MODEL-->>AGENTLOOP: I want to call tool X with these args
 
-    Note over LOOP,HANDLER: --- Moment 2: only if the model asked to call a tool ---
-    LOOP->>REG: dispatch("X", {args})
-    REG->>REG: look up ToolEntry by name "X"
+    Note over AGENTLOOP,HANDLER: Moment 2 - only if the model asked to call a tool
+    AGENTLOOP->>REG: dispatch tool X with its args
+    REG->>REG: look up ToolEntry by name X
     REG->>HANDLER: entry.handler(args)
-    HANDLER-->>REG: real result (or raises an exception)
-    REG->>REG: normalize result to a string,<br/>or catch the exception -> {"error": "..."}
-    REG-->>LOOP: the tool's result
-    LOOP->>MODEL: send the result back as a new message
-    Note over LOOP,MODEL: loop continues - model may call<br/>another tool, or give a final answer
+    HANDLER-->>REG: real result, or raises an exception
+    REG->>REG: normalize result to a string,<br/>or catch the exception into an error result
+    REG-->>AGENTLOOP: the tool's result
+    AGENTLOOP->>MODEL: send the result back as a new message
+    Note over AGENTLOOP,MODEL: conversation continues - model may call<br/>another tool, or give a final answer
 ```
 
 **This is "function calling," and it's a LOOP, not a one-time event.**
