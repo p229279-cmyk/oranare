@@ -188,6 +188,51 @@ worth remembering before they cause a confusing bug later.
 
 ---
 
+## Correction: `ToolRegistry.register()`'s fail-loud collision behavior is NOT a permanent decision
+
+**What happened:** `register()` was built to raise `ValueError`
+immediately on a duplicate tool name, reasoned as strictly better
+than Hermes's real silent-reject-unless-`override=True` behavior,
+because "we have no plugins." A direct user question caught that
+this reasoning checked ONLY today's state (2 agents, all first-party
+code) without checking it against this file's own standing
+architectural principle below (build for 100 agent types, not 2) —
+the same category of mistake as the earlier `dataclass`/`slots=True`
+assumption that also had to be corrected by a direct question.
+
+**What a "plugin" actually means here, concretely:** third-party
+code — written by someone other than this project's own team,
+loaded into the same running process, at a time the core
+maintainers don't control — that calls `registry.register(...)`
+itself, same as a first-party tool file does. Hermes's real
+silent-reject exists specifically because a plugin author's
+accidental name collision shouldn't be able to crash the entire
+agent for every user who installed that plugin.
+
+**Why this is a real, plausible FUTURE need, not a dismissed one:**
+given this harness's own stated goal (one general-purpose system
+reused across 100+ agent types/industries, not just Oranare's 2),
+a real plugin or third-party-tool-package ecosystem is a plausible
+future shape — industry-specific tool packs built by other teams or
+external developers, loaded into the same shared core. Today's
+"we have no plugins, so fail loud" reasoning is correct for TODAY,
+but was wrongly stated as if it were a permanent architectural
+conclusion rather than a decision scoped to the current state.
+
+**The real trigger to revisit `register()`'s collision behavior:**
+the moment ANY plugin/extension-package system is actually designed
+for this harness — at that point, adopt Hermes's real
+silent-reject-unless-`override=True` pattern (or an equivalent),
+because fail-loud becomes actively dangerous once third-party code
+can register at unpredictable times: one bad external package could
+otherwise crash the whole harness for every agent depending on it.
+Do NOT wait for this to actually happen in production to notice —
+revisit `register()` as part of designing the plugin/extension
+system itself, before any third-party tool registration is allowed
+to run for real.
+
+---
+
 ## Standing architectural principle — build for 100 agent types, not 2
 
 This harness's real long-term goal is ONE general-purpose system,
