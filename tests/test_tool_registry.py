@@ -80,3 +80,42 @@ def test_blast_radius_is_required_not_defaulted():
             parameters={"type": "object", "properties": {}},
             handler=_dummy_handler,
         )
+
+
+def test_slots_blocks_arbitrary_extra_attributes():
+    """Regression test for using @dataclass(slots=True): proves the
+    real memory-safety behavior slots=True buys isn't silently lost -
+    an arbitrary extra attribute must be rejected, same as Hermes's
+    real hand-written __slots__ tuple would reject one."""
+    tool = Tool(
+        name="add",
+        description="...",
+        parameters={"type": "object", "properties": {}},
+        handler=_dummy_handler,
+        blast_radius="read_only",
+    )
+    with pytest.raises(AttributeError):
+        tool.some_attribute_never_declared = "surprise"
+
+
+def test_repr_and_equality_still_work_with_slots():
+    """Proves slots=True doesn't cost us the dataclass convenience of
+    auto-generated __repr__/__eq__ - verified directly, not assumed,
+    after an earlier draft incorrectly treated this as a tradeoff."""
+    tool_a = Tool(
+        name="add",
+        description="...",
+        parameters={"type": "object", "properties": {}},
+        handler=_dummy_handler,
+        blast_radius="read_only",
+    )
+    tool_b = Tool(
+        name="add",
+        description="...",
+        parameters={"type": "object", "properties": {}},
+        handler=_dummy_handler,
+        blast_radius="read_only",
+    )
+    assert tool_a == tool_b
+    assert "Tool(" in repr(tool_a)
+    assert "blast_radius='read_only'" in repr(tool_a)

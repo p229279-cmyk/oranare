@@ -83,6 +83,75 @@ specifically a Hermes-style pattern-matching layer on top of its own
 fixed `blast_radius` tier — not a general subsystem built ahead of
 any real consumer.
 
+### Tool.requires_env (NOT built)
+
+**What it would do:** Hermes's real `ToolEntry.requires_env` — a list
+of environment variable names a tool needs before it can actually
+run (e.g. an API key). Used to decide whether a tool should even be
+offered to the model when its credential isn't configured.
+
+**Why it's not built:** no tool we're building yet needs an external
+credential. `Tool.check_fn` already covers "is this tool available
+right now" generically — `requires_env` would just be a specific,
+named reason FOR a `check_fn` to return `False`, not a new mechanism.
+
+**The real trigger to build it:** the first real tool that needs an
+API key or other env-configured credential to function (e.g. a tool
+calling a third-party service for any future agent).
+
+### Tool.max_result_size_chars (NOT built)
+
+**What it would do:** Hermes's real field capping how much of a
+tool's result gets sent back to the model, truncating oversized
+output before it can blow up context size/cost.
+
+**Why it's not built:** no tool we're building yet can return
+unbounded-size data — every current tool's result is small and
+predictable.
+
+**The real trigger to build it:** the first tool that reads or
+returns data of unpredictable/potentially-large size (e.g. a future
+file-reading tool, a web-scraping tool, or a bulk-record-lookup tool
+for any agent type).
+
+### Tool.emoji (NOT built)
+
+**What it would do:** Hermes's real field — a small visual identifier
+shown next to a running tool in Hermes's own CLI/desktop UI.
+
+**Why it's not built:** no UI/dashboard surface exists yet in this
+project that would render it. **Correction to an earlier, wrong
+assessment:** this was first judged as "doesn't apply to our product
+at all," reasoning from an assumption that this project is
+WhatsApp-only forever — that assumption was explicitly corrected: a
+real UI/dashboard interface IS planned for the future, not just
+WhatsApp. This is therefore a genuine deferred item, not a
+dismissed one.
+
+**The real trigger to build it:** the moment any UI/dashboard work
+begins that needs to visually represent tools to a human operator
+(not just describe them to the model).
+
+### Tool.dynamic_schema_overrides (NOT built)
+
+**What it would do:** Hermes's real field — an optional zero-arg
+callable that patches a tool's schema at `get_definitions()` time,
+based on CURRENT runtime config, so the model is never told a stale
+number (Hermes's real case: `delegate_task`'s description must
+reflect the user's currently-configured concurrency limits).
+
+**Why it's not built:** no tool we're building yet has a
+config-dependent description.
+
+**The real trigger to build it:** the first tool whose description
+needs to state a value that can change at runtime based on
+configuration — concrete future examples across the 100-agent-type
+future: a bulk-send tool whose allowed recipient count depends on a
+per-client plan limit; a loan-approval tool whose allowed amount
+range depends on a currently-configured regulatory/policy limit; any
+`consequential_bulk` tool whose description should state the CURRENT
+approval threshold rather than one baked in at registration time.
+
 ---
 
 ## Standing architectural principle — build for 100 agent types, not 2

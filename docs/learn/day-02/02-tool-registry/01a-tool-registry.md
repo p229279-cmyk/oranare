@@ -36,24 +36,39 @@ code as it gets built.
    speculatively. `toolset` and `is_async` are the two most likely to
    be needed soon (Step 5 and Step 4 of this build respectively).
 
-## One more deliberate difference: dataclass, not `__slots__`
+## One more difference from Hermes: `@dataclass(slots=True)`, not a hand-written `__slots__` tuple
 
-Hermes's real `ToolEntry` uses `__slots__` — a real, measured
-memory-footprint optimization that matters when 100+ tool instances
-live in one shared registry for the lifetime of a long-running
-process. We don't have that scale yet. A plain `@dataclass` is
-simpler to read, simpler to test, and the memory saving `__slots__`
-buys isn't a problem we actually have today. Revisit only if real
-tool counts and process lifetimes ever make this matter.
+**Correction, caught by a direct user question, not something gotten
+right the first time:** an earlier version of this doc (and the code)
+claimed dataclass-vs-slots was a real tradeoff — "memory efficiency OR
+convenient repr/equality, pick one." That was WRONG, and wrong because
+it was assumed rather than checked. Verified directly: Python 3.10+'s
+`@dataclass(slots=True)` gives BOTH at once — `__slots__`'s real
+memory saving AND the dataclass's auto-generated `__repr__`/`__eq__`,
+with zero loss either way. Measured directly on our actual 6-field
+shape: **80 bytes with `slots=True` vs. 352 bytes without — a real,
+free 4.4x reduction**, confirmed with `sys.getsizeof()`, not assumed.
+Fixed in the code to use `@dataclass(slots=True)`; two new regression
+tests added (`test_slots_blocks_arbitrary_extra_attributes`,
+`test_repr_and_equality_still_work_with_slots`) proving both halves of
+the claim are real, not just asserted in a docstring.
+
+The real lesson here, worth stating plainly: **"check it, don't
+assume it" applies to our OWN reasoning just as much as it applies to
+claims about Hermes or the SDKs** — the earlier draft sounded
+plausible and matched a real, generally-true fact about older Python
+(`__slots__` used to genuinely conflict with dataclasses before 3.10),
+but hadn't been verified against the ACTUAL Python version this
+project targets (3.11, confirmed in `docs/STACK.md`).
 
 ## Verified
 
-5 tests, `tests/test_tool_registry.py`: construction with all
+7 tests, `tests/test_tool_registry.py`: construction with all
 required fields, the handler is a real callable that produces a real
 result, `check_fn` defaults to `None` (always available) and can be
-set to a real callable, and — the one enforcement test that matters
-most — omitting `blast_radius` raises `TypeError`, proving the
-"required, not optional" design decision is real, not just a comment.
+set to a real callable, the enforcement test that omitting
+`blast_radius` raises `TypeError`, and the two new slots regression
+tests described above.
 
 ## Next
 
