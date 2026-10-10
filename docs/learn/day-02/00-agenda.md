@@ -48,7 +48,9 @@ ModelProvider  →  ToolRegistry  →  Agent Loop
 | 1e | `docs/learn/day-02/01-model-provider/01e-retry.md` | `agent/retry.py` | category E in 1c |
 | 1f | `docs/learn/day-02/01-model-provider/01f-openai-adapter.md` | `agent/adapters/openai/provider.py` | `docs/engine/02-MODEL-PROVIDER.md` (second concrete adapter) |
 | 1g | `docs/learn/day-02/01-model-provider/01g-openai-quirks.md` | `agent/adapters/openai/quirks.py` | category C, second vendor |
-| 2 | `docs/learn/day-02/02-tool-registry.md` | `tools/registry.py` | `docs/engine/03-TOOLS.md` |
+| 2 | `docs/learn/day-02/02-tool-registry/00-big-picture.md` | n/a (conceptual, Hermes-grounded) | `docs/engine/03-TOOLS.md` |
 | 3 | `docs/learn/day-02/03-agent-loop.md` | `agent/loop.py` | `docs/engine/01-AGENT-LOOP.md` |
 
-1, 1b, 1c, 1d, 1e, 1f, 1g done. Continuing with 2 (`ToolRegistry`) next.
+1, 1b, 1c, 1d, 1e, 1f, 1g done. 2 started (conceptual big-picture only,
+no code yet — see `02-tool-registry/00-big-picture.md`). Code for our
+own `ToolRegistry` not yet begun.
