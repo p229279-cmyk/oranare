@@ -173,6 +173,24 @@ handler doesn't always need to be a separate adapter — if the
 underlying function already accepts the expected argument format, it
 can serve directly as the handler.
 
+> **BUT HERMES DOES IT LIKE THIS** — the real signature registered in
+> Hermes's own tool files is `handler=lambda args, **kw: ...`, not
+> just `lambda args: ...`. Verified directly in
+> `tools/computer_use_tool.py` and `tools/close_terminal_tool.py`:
+> ```python
+> handler=lambda args, **kw: handle_computer_use(args, **kw),
+> ```
+> The real `dispatch()` (`tools/registry.py`) accepts arbitrary extra
+> keyword arguments and forwards them to every handler:
+> `entry.handler(args, **kwargs)`. Our simplified `add_handler(args)`
+> is correct for a tool that needs nothing beyond its own arguments —
+> but a REAL handler can also receive session-level context (who's
+> calling, which scope, etc.) through `**kwargs`, without that context
+> ever needing to be part of the tool's own JSON schema. This doc's
+> `add` example deliberately leaves this out because `add` never needs
+> that extra context — but a real tool that DOES need it (e.g. one
+> that behaves differently per-profile) would use it.
+
 **What is a contract?** The harness expects every registered handler
 to accept one argument dictionary and return a result — that's the
 handler's calling contract:
@@ -260,6 +278,29 @@ registry connects three things: the tool's name, its schema, and its
 handler. When the harness receives a request for `add`, it looks up
 the matching entry rather than searching through source files or
 hard-coding every function into its execution loop.
+
+> **BUT HERMES DOES IT LIKE THIS** — the real `ToolEntry`
+> (`tools/registry.py`) carries far more than name/schema/handler.
+> Verified directly in source:
+> ```python
+> class ToolEntry:
+>     __slots__ = (
+>         "name", "toolset", "schema", "handler", "check_fn",
+>         "requires_env", "is_async", "description", "emoji",
+>         "max_result_size_chars", "dynamic_schema_overrides",
+>     )
+> ```
+> Real extra fields our simplified `add` example never needs:
+> `requires_env` (env vars the tool needs before it can run, e.g. an
+> API key), `is_async` (see Step 11's note below), `emoji` (a small
+> UI touch — each tool shows a matching emoji while running), and
+> `dynamic_schema_overrides` (a callable that can patch the schema
+> at `get_definitions()` time based on CURRENT runtime config — e.g.
+> `delegate_task`'s description changes depending on the user's
+> configured concurrency limits, so the model is never told a stale
+> number). None of these matter for `add`, which is why they're
+> omitted above — but they're real, and exist because Hermes has
+> ~100+ genuinely different tools, each with different real needs.
 
 ### Step 7. How does a tool enter the registry?
 
@@ -413,6 +454,32 @@ The registry is used TWICE, for two different purposes: (1) to
 retrieve the SCHEMA exposed to the LLM (Step 9), and (2) to retrieve
 the HANDLER that executes the LLM's request (this step). Both lookups
 refer to the SAME registered tool entry.
+
+> **BUT HERMES DOES IT LIKE THIS** — the real `dispatch()` does more
+> than our simplified trace shows. Verified directly in
+> `tools/registry.py`:
+> ```python
+> try:
+>     if entry.is_async:
+>         result = _run_async(entry.handler(args, **kwargs))
+>     else:
+>         result = entry.handler(args, **kwargs)
+>     return self._normalize_handler_result(name, result)
+> except Exception as e:
+>     ...
+>     return tool_error(sanitized)
+> ```
+> Two real things our `add` example doesn't need to show, because
+> `add_handler` can't realistically fail or need async: (1) **every
+> single handler call is wrapped in a try/except** — if a real tool's
+> handler raises an exception (a network error, a bad file path,
+> anything), `dispatch()` catches it and turns it into a clean
+> `{"error": "..."}` string instead of crashing the whole
+> conversation; (2) **a handler can be `async`** (for tools doing real
+> I/O, like a network call) — `dispatch()` checks `entry.is_async` and
+> bridges it through `_run_async()` so the rest of the system never
+> needs to know or care whether a given tool's handler is sync or
+> async.
 
 ### Step 12. The result goes back to the LLM
 
