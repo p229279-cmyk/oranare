@@ -1,13 +1,14 @@
 """
 tests/test_tool_registry.py
 
-Tests for tools/registry.py's generic Tool shape - see
-docs/learn/day-02/02-tool-registry/01a-tool-registry.md Step 1.
+Tests for tools/registry.py's generic Tool shape (Step 1) and
+ToolRegistry.register()/get_entry() (Step 2) - see
+docs/learn/day-02/02-tool-registry/01a-tool-registry.md.
 """
 
 import pytest
 
-from tools.registry import Tool
+from tools.registry import BlastRadius, Tool, ToolRegistry
 
 
 def _dummy_handler(args):
@@ -119,3 +120,56 @@ def test_repr_and_equality_still_work_with_slots():
     assert tool_a == tool_b
     assert "Tool(" in repr(tool_a)
     assert "blast_radius='read_only'" in repr(tool_a)
+
+
+def _make_tool(name: str = "add", blast_radius: BlastRadius = "read_only") -> Tool:
+    return Tool(
+        name=name,
+        description="...",
+        parameters={"type": "object", "properties": {}},
+        handler=_dummy_handler,
+        blast_radius=blast_radius,
+    )
+
+
+def test_register_then_get_entry_returns_the_same_tool():
+    registry = ToolRegistry()
+    tool = _make_tool()
+    registry.register(tool)
+    assert registry.get_entry("add") is tool
+
+
+def test_get_entry_returns_none_for_an_unknown_name():
+    registry = ToolRegistry()
+    assert registry.get_entry("does_not_exist") is None
+
+
+def test_registering_a_duplicate_name_raises_loudly():
+    """Fail-loud discipline: a duplicate name is OUR OWN authoring
+    mistake (we have no plugins yet), so it should raise immediately
+    rather than silently reject or silently overwrite."""
+    registry = ToolRegistry()
+    registry.register(_make_tool(name="add"))
+    with pytest.raises(ValueError):
+        registry.register(_make_tool(name="add"))
+
+
+def test_duplicate_registration_does_not_replace_the_original():
+    registry = ToolRegistry()
+    original = _make_tool(name="add", blast_radius="read_only")
+    registry.register(original)
+    try:
+        registry.register(_make_tool(name="add", blast_radius="consequential_bulk"))
+    except ValueError:
+        pass
+    assert registry.get_entry("add") is original
+    assert registry.get_entry("add").blast_radius == "read_only"
+
+
+def test_two_different_tool_names_both_register_successfully():
+    registry = ToolRegistry()
+    registry.register(_make_tool(name="add"))
+    registry.register(_make_tool(name="subtract"))
+    assert registry.get_entry("add") is not None
+    assert registry.get_entry("subtract") is not None
+

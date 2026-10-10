@@ -49,9 +49,10 @@ ModelProvider  →  ToolRegistry  →  Agent Loop
 | 1f | `docs/learn/day-02/01-model-provider/01f-openai-adapter.md` | `agent/adapters/openai/provider.py` | `docs/engine/02-MODEL-PROVIDER.md` (second concrete adapter) |
 | 1g | `docs/learn/day-02/01-model-provider/01g-openai-quirks.md` | `agent/adapters/openai/quirks.py` | category C, second vendor |
 | 2 | `docs/learn/day-02/02-tool-registry/00-big-picture.md` | n/a (conceptual, Hermes-grounded) | `docs/engine/03-TOOLS.md` |
-| 2a | `docs/learn/day-02/02-tool-registry/01a-tool-registry.md` | `tools/registry.py` (Tool shape) | `docs/engine/03-TOOLS.md` |
+| 2a | `docs/learn/day-02/02-tool-registry/01a-tool-registry.md` | `tools/registry.py` (Tool shape + ToolRegistry.register/get_entry) | `docs/engine/03-TOOLS.md` |
 | 3 | `docs/learn/day-02/03-agent-loop.md` | `agent/loop.py` | `docs/engine/01-AGENT-LOOP.md` |
 
 1, 1b, 1c, 1d, 1e, 1f, 1g done. 2 started: big-picture conceptual doc
-done, code now underway — Step 1 (`Tool` shape) done, tested, pushed.
-Continuing with Step 2 (`ToolRegistry.register()`) next.
+done, code now underway — Step 1 (`Tool` shape) and Step 2
+(`ToolRegistry.register()`/`get_entry()`) done, tested, pushed.
+Continuing with Step 3 (`get_definitions()`) next.

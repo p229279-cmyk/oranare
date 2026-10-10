@@ -75,11 +75,56 @@ tests described above.
 Full function-by-function explanation lives in
 [`01a-tool-registry-code-explaination.md`](01a-tool-registry-code-explaination.md).
 
+## Step 2 — `ToolRegistry`: `register()` and `get_entry()`
+
+`tools/registry.py` now also has a `ToolRegistry` class: a plain
+`dict[str, Tool]`, plus `register(tool)` and `get_entry(name)`.
+
+**Deliberately much smaller than Hermes's real `register()`.** The
+real Hermes signature takes 13 parameters and carries real complexity
+we have no use for yet: plugin-ownership tracking
+(`_plugin_owner_of`), per-profile scoped overlays (`scope=`), and an
+`override=True` opt-in for a plugin replacing a built-in tool. All of
+that exists because Hermes has a plugin ecosystem — third-party code
+can register tools alongside, or instead of, built-in ones, at
+unpredictable times, from code Hermes's own maintainers didn't write.
+We have no plugins today — every tool we register is OUR OWN code,
+so none of that ownership/override machinery has a real consumer yet
+(same YAGNI discipline as everywhere else in this build; see `TODO.md`
+if this ever needs revisiting).
+
+**The one real behavioral difference worth naming:** Hermes's real
+`register()` on a name collision **silently rejects** the NEW
+registration (logs an error, returns, the ORIGINAL tool keeps its
+slot) unless `override=True` is explicitly passed. Ours **raises
+`ValueError` immediately** instead. Why the difference is deliberate,
+not an oversight: Hermes's silent-reject makes sense when a
+THIRD-PARTY plugin might register at an unpredictable time — crashing
+the whole process over someone else's plugin mistake would be overly
+disruptive. We have no plugins, so every duplicate-name collision
+today is OUR OWN authoring mistake (two tools accidentally given the
+same name) — and an authoring mistake in our own code should fail
+loudly and immediately, at the exact moment it happens, not be
+silently absorbed. Same "fail loud, not silent" discipline as
+`blast_radius` being required and `ProviderInvariantError` in
+`agent/model_provider.py`.
+
+## Verified (Step 2)
+
+5 more tests: register-then-get-entry returns the same object,
+`get_entry` on an unknown name returns `None` (not an exception — "is
+this registered" is a normal question, not an error), a duplicate
+name raises `ValueError`, a duplicate registration does NOT replace
+the original entry (proving the rejection is real, not just an
+exception with no actual effect), and two different names both
+register successfully side by side. 12 tests total in this file, 54
+across the whole project.
+
 ## Next
 
-Step 2: the `ToolRegistry` class itself, starting with `register()`
-only — mirroring how `AnthropicProvider` was built one method at a
-time (`chat()` before `stream()`).
+Step 3: `get_definitions()` — the exposure-to-model lookup, including
+`check_fn` filtering (mirrors Hermes's real availability check, see
+the big-picture doc's Phase B sequence diagram).
 
 ## A real question worth recording: why `blast_radius` when Hermes has no such field?
 

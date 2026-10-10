@@ -13,8 +13,8 @@ Deliberately built the SAME way ModelProvider was: real shapes first,
 one function/class at a time, each checked against real Hermes
 source before being written - but NOT copying Hermes wherever our own
 spec (docs/engine/03-TOOLS.md, docs/standards/SECURITY.md) already
-made a different, deliberate decision. Two differences from Hermes's
-real ToolEntry, both intentional:
+made a different, deliberate decision. Three differences from Hermes's
+real ToolEntry, all intentional:
 
 1. blast_radius is a REQUIRED field here, with no default. Hermes's
    real ToolEntry has no such field at all - Hermes's own approval
@@ -28,6 +28,13 @@ real ToolEntry, both intentional:
    YAGNI discipline as agent/adapters/anthropic/quirks.py starting
    with 2 models before being expanded. Extra fields get added only
    when a real tool actually needs one, not speculatively.
+3. ToolRegistry.register() on a duplicate name RAISES ValueError
+   immediately. Hermes's real register() silently rejects (logs an
+   error, returns) unless override=True is passed - sensible when a
+   third-party plugin might register at an unpredictable time. We
+   have no plugins yet, so a duplicate name today is OUR OWN
+   authoring mistake, and should fail loudly at the exact moment it
+   happens, not be silently absorbed.
 """
 
 from __future__ import annotations
@@ -71,3 +78,66 @@ class Tool:
     handler: Callable[..., Any]
     blast_radius: BlastRadius
     check_fn: Callable[[], bool] | None = None
+
+
+class ToolRegistry:
+    """Stores registered tools and is the single place anything else
+    looks a tool up by name.
+
+    Deliberately much smaller than Hermes's real ToolRegistry
+    (1,335 lines total in tools/registry.py). Hermes's real register()
+    carries a lot of real complexity we don't have a need for yet:
+    plugin-ownership tracking, per-profile scoped overlays, an
+    override=True opt-in for a plugin replacing a built-in tool. All
+    of that exists because Hermes has a plugin ecosystem with
+    third-party code that can register tools alongside (or instead
+    of) built-in ones. We have no plugins today - every tool we
+    register is OUR OWN code, written and reviewed by us, so none of
+    that ownership/override machinery has a real consumer yet. See
+    TODO.md for the real trigger condition to revisit this.
+
+    What we build instead, for the same real problem Hermes's
+    register() solves at its core: a simple dict keyed by name, and a
+    loud, immediate failure (not a silent skip) if two tools are ever
+    registered under the same name - this project's "fail loud, not
+    silent" discipline (the same one behind blast_radius being
+    required and ProviderInvariantError in model_provider.py), applied
+    here too.
+    """
+
+    def __init__(self) -> None:
+        self._tools: dict[str, Tool] = {}
+
+    def register(self, tool: Tool) -> None:
+        """Register a tool. Called once per tool, typically at
+        import/startup time - see Step 2 of
+        docs/learn/day-02/02-tool-registry/01a-tool-registry.md.
+
+        Raises ValueError on a duplicate name. Hermes's real
+        register() silently REJECTS (logs an error, returns) a
+        same-name registration from a different toolset unless
+        override=True is passed - a sensible choice when third-party
+        plugin code might register at unpredictable times and crashing
+        the whole process over it would be too disruptive. We have no
+        plugins yet, so every duplicate registration today is OUR OWN
+        bug, caught at the exact moment it would otherwise cause a real
+        problem (two tools silently fighting over the same name) -
+        raising loudly, immediately, is strictly better for catching an
+        authoring mistake in our own code before it ships.
+        """
+        if tool.name in self._tools:
+            raise ValueError(
+                f"Tool '{tool.name}' is already registered. Each tool "
+                f"name must be unique within a registry."
+            )
+        self._tools[tool.name] = tool
+
+    def get_entry(self, name: str) -> Tool | None:
+        """Look up a registered tool by name. Returns None if no tool
+        with that name is registered - mirrors Hermes's real
+        get_entry(), which also returns None (not an exception) for an
+        unknown name, since "is this tool registered" is a normal,
+        expected question to ask, not an error condition.
+        """
+        return self._tools.get(name)
+
