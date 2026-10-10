@@ -1,4 +1,4 @@
-# Day 3, Component 1 — ToolRegistry Step 1: the `Tool` shape
+# Day 2, Component 2, Step 1 — ToolRegistry: the `Tool` shape
 
 Same build order as `ModelProvider`: real shapes first, one piece at
 a time, each grounded in real Hermes source before being written —

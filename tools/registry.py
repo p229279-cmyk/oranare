@@ -5,7 +5,7 @@ The generic, tool-agnostic vocabulary for the tool system: the shape
 every tool is described with (Tool), and - in later steps - the
 registry that stores and dispatches them.
 
-See docs/learn/day-03/01-tool-registry/01a-tool-registry.md for the
+See docs/learn/day-02/02-tool-registry/01a-tool-registry.md for the
 teaching walkthrough and docs/engine/03-TOOLS.md for the spec this
 implements.
 

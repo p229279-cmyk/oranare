@@ -2,7 +2,7 @@
 tests/test_tool_registry.py
 
 Tests for tools/registry.py's generic Tool shape - see
-docs/learn/day-03/01-tool-registry/01a-tool-registry.md Step 1.
+docs/learn/day-02/02-tool-registry/01a-tool-registry.md Step 1.
 """
 
 import pytest
